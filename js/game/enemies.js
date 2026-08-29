@@ -1,6 +1,8 @@
-// ===== ⚔️ 战斗agent 名下:敌人系统(9 种常规 + 精英 + 双 Boss) =====
-// 职责:敌人 AI/移动/接触伤害、弹幕(双方)飞行与命中判定、区域(圣域/闪电)结算、
-//       伤害唯一入口 damageEnemy(数字/暴击/击退/闪白/死亡掉落联动)。
+// ===== ⚔️ 战斗agent 名下:敌人系统(9 种常规 + 精英 + 双 Boss + 元素状态联动,水墨江湖版) =====
+// 职责:敌人 AI/移动/接触伤害、弹幕(双方)飞行与命中判定、区域(墨域/火区/落雷)结算、
+//       伤害唯一入口 damageEnemy(数字/暴击/击退/闪白/死亡掉落)。
+// 联动(CONTRACT v2):e.status={burn,wet} 秒数;焚天命中→灼烧,墨雨/墨染→墨湿;
+//       burn+wet 并存→蒸汽爆发(90px AoE+白雾+震屏);五雷击中湿敌→感电连锁;灼烧之敌死亡→殉焰火区。
 import { drawSprite } from '../sprites.js';
 import { Bus } from '../core/engine.js';
 
@@ -11,26 +13,29 @@ export const combatState = { runActive: false };
 
 // beh: 0直线 1摆动 2直线 3突进 4直线(半减伤退) 5自爆 6直线(免疫击退) 7正弦 8快速追踪 9冲撞Boss 10弹幕Boss
 export const ENEMY_TYPES = {
-  slime:         { name: '史莱姆',   sprite: 'slime',         hp: 12,   speed: 40, dmg: 8,  r: 14, xp: 1,   coinP: 0.08, beh: 0,  col: '#63c74d', kb: 1 },
-  bat:           { name: '蝙蝠',     sprite: 'bat',           hp: 9,    speed: 86, dmg: 6,  r: 11, xp: 1,   coinP: 0.06, beh: 1,  col: '#68386c', kb: 1 },
-  skeleton:      { name: '骷髅',     sprite: 'skeleton',      hp: 28,   speed: 54, dmg: 12, r: 14, xp: 2,   coinP: 0.10, beh: 2,  col: '#c0cbdc', kb: 1 },
-  spider:        { name: '蜘蛛',     sprite: 'spider',        hp: 22,   speed: 48, dmg: 11, r: 12, xp: 2,   coinP: 0.08, beh: 3,  col: '#b86f50', kb: 1 },
-  brute:         { name: '蛮兵',     sprite: 'brute',         hp: 75,   speed: 34, dmg: 18, r: 19, xp: 4,   coinP: 0.12, beh: 4,  col: '#b55088', kb: 0.5 },
-  bomber:        { name: '自爆虫',   sprite: 'bomber',        hp: 18,   speed: 74, dmg: 0,  r: 12, xp: 2,   coinP: 0.10, beh: 5,  col: '#e43b44', kb: 1 },
-  turtle:        { name: '岩龟',     sprite: 'turtle',        hp: 170,  speed: 17, dmg: 14, r: 17, xp: 6,   coinP: 0.16, beh: 6,  col: '#9ac1c9', kb: 0 },
-  wisp:          { name: '鬼火',     sprite: 'wisp',          hp: 26,   speed: 58, dmg: 10, r: 11, xp: 3,   coinP: 0.08, beh: 7,  col: '#2ce8f5', kb: 1 },
-  reaper:        { name: '死神',     sprite: 'reaper',        hp: 95,   speed: 68, dmg: 22, r: 18, xp: 8,   coinP: 0.25, beh: 8,  col: '#68386c', kb: 0.4 },
-  boss_golem:    { name: '石头守卫', sprite: 'boss_golem',    hp: 2200, speed: 44, dmg: 26, r: 38, xp: 60,  coinP: 1,    beh: 9,  col: '#b55088', kb: 0.12, boss: 1 },
-  boss_overlord: { name: '深渊领主', sprite: 'boss_overlord', hp: 9000, speed: 42, dmg: 30, r: 48, xp: 150, coinP: 1,    beh: 10, col: '#e43b44', kb: 0.05, boss: 1 },
+  slime:         { name: '纸妖',     sprite: 'slime',         hp: 12,   speed: 40, dmg: 8,  r: 14, xp: 1,   coinP: 0.08, beh: 0,  col: '#63c74d', kb: 1 },
+  bat:           { name: '夜枭',     sprite: 'bat',           hp: 9,    speed: 86, dmg: 6,  r: 11, xp: 1,   coinP: 0.06, beh: 1,  col: '#68386c', kb: 1 },
+  skeleton:      { name: '骨卫',     sprite: 'skeleton',      hp: 28,   speed: 54, dmg: 12, r: 14, xp: 2,   coinP: 0.10, beh: 2,  col: '#c0cbdc', kb: 1 },
+  spider:        { name: '蛛妖',     sprite: 'spider',        hp: 22,   speed: 48, dmg: 11, r: 12, xp: 2,   coinP: 0.08, beh: 3,  col: '#b86f50', kb: 1 },
+  brute:         { name: '金刚力士', sprite: 'brute',         hp: 75,   speed: 34, dmg: 18, r: 19, xp: 4,  coinP: 0.12, beh: 4,  col: '#b55088', kb: 0.5 },
+  bomber:        { name: '火药童子', sprite: 'bomber',        hp: 18,   speed: 74, dmg: 0,  r: 12, xp: 2,   coinP: 0.10, beh: 5,  col: '#e43b44', kb: 1 },
+  turtle:        { name: '铁甲龟',   sprite: 'turtle',        hp: 170,  speed: 17, dmg: 14, r: 17, xp: 6,   coinP: 0.16, beh: 6,  col: '#9ac1c9', kb: 0 },
+  wisp:          { name: '青灯鬼火', sprite: 'wisp',          hp: 26,   speed: 58, dmg: 10, r: 11, xp: 3,   coinP: 0.08, beh: 7,  col: '#2ce8f5', kb: 1 },
+  reaper:        { name: '黑无常',   sprite: 'reaper',        hp: 95,   speed: 68, dmg: 22, r: 18, xp: 8,   coinP: 0.25, beh: 8,  col: '#68386c', kb: 0.4 },
+  boss_golem:    { name: '石像守卫', sprite: 'boss_golem',    hp: 2200, speed: 44, dmg: 26, r: 38, xp: 60,  coinP: 1,    beh: 9,  col: '#b55088', kb: 0.12, boss: 1 },
+  boss_overlord: { name: '无常尊者', sprite: 'boss_overlord', hp: 9000, speed: 42, dmg: 30, r: 48, xp: 150, coinP: 1,    beh: 10, col: '#e43b44', kb: 0.05, boss: 1 },
 };
 
 let uid = 0;
 let lastHitSfx = 0;
 const TAU = Math.PI * 2;
-// 热路径复用的伤害参数对象(单线程,先填字段后调用,无重入)
+// 热路径复用的伤害参数对象(单线程,先填字段后调用,无重入;调用方每敌先填)
 const HIT = { kx: 0, ky: 0 };
-const SMALL = { small: 1, kx: 0, ky: 0 };
-const KB0 = { kx: 0, ky: 0 };
+const DOT = { dot: 1, kx: 0, ky: 0 };            // 灼烧/区域跳伤:淡墨小字、无粒子
+const SYN = { synergy: 1, kx: 0, ky: 0 };        // 联动伤害(感电/环缘放电):青焰小字
+
+// 蒸汽/连锁/环缘放电专用查询缓冲(与 g.qbuf 隔离,允许在 qbuf 迭代中嵌套查询)
+const QBX = [];
 
 export function spawnEnemy(g, typeId, x, y, o = {}) {
   const t = ENEMY_TYPES[typeId];
@@ -47,7 +52,8 @@ export function spawnEnemy(g, typeId, x, y, o = {}) {
     xp: mini ? 1 : Math.round(t.xp * (elite ? 5 : 1)),
     coinP: Math.min(1, t.coinP * (elite ? 3 : 1)),
     elite, mini,
-    hpMult: o.hpMult || 1, dmgMult: o.dmgMult || 1, // 供史莱姆分裂继承成长
+    hpMult: o.hpMult || 1, dmgMult: o.dmgMult || 1, // 供纸妖分裂继承成长
+    status: { burn: 0, wet: 0 }, burnT: 0,          // 元素状态(秒):灼烧/墨湿
     flashT: 0, kx: 0, ky: 0, hitCd: 0, orbCd: 0,
     t: Math.random() * 10, aiT: Math.random() * 2.4, state: 0, atkCd: 2 + Math.random() * 2, atkN: 0,
     fuse: -1, cx: 0, cy: 0, spd: 0,
@@ -64,6 +70,7 @@ export function shakeIf(g, mag, dur) {
 }
 
 // 唯一伤害入口:伤害数字 / 暴击(10%×1.6) / 击退 / 闪白 / 死亡掉落
+// 配色(CONTRACT v2 水墨):普通墨色 #3a3a3a · 暴击朱砂 #b03a2e · 联动青焰 #4da7b4
 export function damageEnemy(g, e, amount, o = {}) {
   if (!e || e.dead || e.hp <= 0) return;
   const st = g.player ? g.player.stats : null;
@@ -79,14 +86,108 @@ export function damageEnemy(g, e, amount, o = {}) {
   const kb = (o.kb !== undefined ? o.kb : 1) * e.kbMult;
   if (kb > 0) { e.kx += (o.kx || 0) * kb; e.ky += (o.ky || 0) * kb; }
   g.spawnText(e.x, e.y - e.r - 8, String(dmg), {
-    color: crit ? '#fee761' : (o.small ? '#ffb3a0' : '#ffffff'),
-    size: crit ? 18 : (o.small ? 11 : 13), crit,
+    color: o.synergy ? '#4da7b4' : crit ? '#b03a2e' : (o.dot ? '#6f6252' : '#3a3a3a'),
+    size: o.dot ? 10 : crit ? 18 : 13, crit,
   });
-  g.addParticles(e.x, e.y, { n: crit ? 7 : 3, color: e.pcol, speed: 110, life: 0.3, size: 3 });
-  if (crit) shakeIf(g, 2.5, 0.12);
+  if (!o.dot) g.addParticles(e.x, e.y, { n: crit ? 7 : 3, color: e.pcol, speed: 110, life: 0.3, size: 3 });
+  if (crit) shakeIf(g, 1.8, 0.1);
   const now = performance.now();
   if (now - lastHitSfx >= 70) { lastHitSfx = now; Bus.emit('sfx', 'hit'); } // 音效节流
   if (e.hp <= 0) killEnemy(g, e);
+}
+
+// ---- 元素状态系统(burn 灼烧 / wet 墨湿,秒数)与四条联动 ----
+// 施加状态:焚天类 → burn 3s;墨雨/墨染乾坤 → wet 3s;两者并存瞬间 → 蒸汽爆发
+export function applyStatus(g, e, kind, dur) {
+  if (!e || e.dead || !e.status) return;
+  const s = e.status;
+  s[kind] = Math.max(s[kind], dur);
+  if (kind === 'burn' && e.burnT <= 0) e.burnT = 0.5;
+  if (s.burn > 0 && s.wet > 0) steamBurst(g, e); // 阴阳相激
+}
+
+// 蒸汽爆发:90px AoE(该敌最大HP×8%+30),白雾大粒子 + 震屏 + 青焰提示(节流 800ms)
+let lastSteamT = 0;
+function steamBurst(g, e) {
+  e.status.burn = 0; e.status.wet = 0; // 汽化:双状态清空,防止连环自触
+  g.addParticles(e.x, e.y, { n: 10, color: '#efe9dc', speed: 150, life: 0.45, size: 7 });
+  g.addParticles(e.x, e.y, { n: 6, color: '#ffffff', speed: 90, life: 0.65, size: 10 });
+  shakeIf(g, 2, 0.15);
+  Bus.emit('sfx', 'hit');
+  const now = performance.now();
+  if (now - lastSteamT >= 800) {
+    lastSteamT = now;
+    g.spawnText(e.x, e.y - e.r - 20, '阴阳相激!', { color: '#4da7b4', size: 17, life: 1 });
+  }
+  const R = 90, dmg = e.maxHp * 0.08 + 30;
+  const near = g.grid.query(e.x, e.y, R, QBX);
+  for (let k = 0; k < near.length; k++) {
+    const o = near[k];
+    if (o.dead) continue;
+    const dx = o.x - e.x, dy = o.y - e.y, rr = R + o.r;
+    if (dx * dx + dy * dy < rr * rr) {
+      const dd = Math.sqrt(dx * dx + dy * dy) || 1;
+      HIT.kx = (dx / dd) * 130; HIT.ky = (dy / dd) * 130;
+      damageEnemy(g, o, dmg, HIT);
+    }
+  }
+}
+
+// 感电连锁:从 src 向 140px 内最多 maxN 个敌人跳电弧(60% 伤),青色电弧粒子连线
+export function chainLightning(g, src, dmg, maxN, r) {
+  const near = g.grid.query(src.x, src.y, r, QBX);
+  let hits = 0;
+  for (let k = 0; k < near.length && hits < maxN; k++) {
+    const e = near[k];
+    if (e === src || e.dead) continue;
+    const dx = e.x - src.x, dy = e.y - src.y;
+    if (dx * dx + dy * dy > r * r) continue;
+    hits++;
+    const dd = Math.sqrt(dx * dx + dy * dy) || 1;
+    SYN.kx = (dx / dd) * 60; SYN.ky = (dy / dd) * 60;
+    damageEnemy(g, e, dmg, SYN);
+    zapLine(g, src.x, src.y, e.x, e.y);
+  }
+  return hits;
+}
+
+// 青色电弧:沿连线撒青焰小粒子
+function zapLine(g, x0, y0, x1, y1) {
+  const d = Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+  const n = Math.min(10, Math.max(3, (d / 16) | 0));
+  for (let i = 1; i < n; i++) {
+    const f = i / n;
+    g.addParticles(
+      x0 + (x1 - x0) * f + (Math.random() - 0.5) * 8,
+      y0 + (y1 - y0) * f + (Math.random() - 0.5) * 8,
+      { n: 1, color: '#5fb8c4', speed: 14, life: 0.22, size: 3 },
+    );
+  }
+}
+
+// 灼烧 DOT + 墨湿衰减 + 状态粒子(朱砂火星 / 青焰湿气)
+function updateStatus(g, e, dt) {
+  const s = e.status;
+  if (s.burn > 0) {
+    s.burn -= dt;
+    e.burnT -= dt;
+    if (e.burnT <= 0) { // 每秒灼烧 DOT(对大体型有上限,防 Boss 白嫖)
+      e.burnT = 0.5;
+      DOT.kx = 0; DOT.ky = 0;
+      damageEnemy(g, e, 2 + Math.min(1500, e.maxHp) * 0.008, DOT);
+    }
+    if (Math.random() < dt * 4 && g.inView(e.x, e.y, 60)) {
+      g.addParticles(e.x + (Math.random() - 0.5) * e.r, e.y - e.r * 0.4,
+        { n: 1, color: '#d9662e', speed: 26, life: 0.35, size: 3, grav: -30 });
+    }
+  }
+  if (s.wet > 0) {
+    s.wet -= dt;
+    if (Math.random() < dt * 3 && g.inView(e.x, e.y, 60)) {
+      g.addParticles(e.x + (Math.random() - 0.5) * e.r, e.y - e.r * 0.3,
+        { n: 1, color: '#5fb8c4', speed: 20, life: 0.4, size: 3 });
+    }
+  }
 }
 
 function killEnemy(g, e) {
@@ -94,7 +195,15 @@ function killEnemy(g, e) {
   e.dead = true;
   g.stats.kills++;
   g.addParticles(e.x, e.y, { n: e.boss ? 30 : 10, color: e.pcol, speed: e.boss ? 210 : 130, life: 0.55, size: 4, grav: 70 });
-  // 史莱姆死亡分裂 2 只小史莱姆(小史莱姆不再分裂)
+  // 殉焰:灼烧之敌死亡留下 2s 火区(半径 40,tick 伤害,复用 g.zones)
+  if (e.status && e.status.burn > 0 && !e.mini && g.zones.length < 46) {
+    g.addZone({
+      x: e.x, y: e.y, r: 40, life: 2, maxLife: 2,
+      tickDmg: 3 + Math.min(1200, e.maxHp) * 0.008, tick: 0.35, tickT: 0.35,
+      sprite: 'zone_holy', tint: '#d9662e', burnOn: 1,
+    });
+  }
+  // 纸妖死亡分裂 2 只小纸妖(小纸妖不再分裂)
   if (e.type === 'slime' && !e.mini && g.enemies.length < 235) {
     for (let i = 0; i < 2; i++) {
       spawnEnemy(g, 'slime', e.x + (i ? 12 : -12), e.y + (Math.random() - 0.5) * 18,
@@ -104,7 +213,7 @@ function killEnemy(g, e) {
   Bus.emit('enemy-death', e); // pickups 监听掉落(精英 e.elite 必掉宝箱);boss.js 监听 Boss 死亡
 }
 
-// 自爆虫爆炸:对玩家与周围敌人造成伤害(可殉爆连锁)
+// 火药童子自爆:对玩家与周围敌人造成伤害(可殉爆连锁)
 function bomberBoom(g, e) {
   if (e.dead) return;
   e.dead = true;
@@ -167,7 +276,7 @@ function steerHome(pr, dt, g) {
   pr.rot = na;
 }
 
-// 火球爆炸:半径 AoE,带距离衰减
+// 火球爆炸:半径 AoE,带距离衰减;可施加灼烧 / 留下灼烧火区(焚天煮海)
 function explode(g, pr) {
   const r = pr.boomR;
   g.addParticles(pr.x, pr.y, { n: 14, color: '#feae34', speed: 170, life: 0.4, size: 4 });
@@ -182,7 +291,34 @@ function explode(g, pr) {
       HIT.kx = dd > 1 ? (dx / dd) * 90 : 0;
       HIT.ky = dd > 1 ? (dy / dd) * 90 : 0;
       damageEnemy(g, e, pr.boomDmg * (1 - 0.4 * Math.min(1, dd / r)), HIT);
+      if (pr.burnHit) applyStatus(g, e, 'burn', pr.burnHit);
     }
+  }
+  const fz = pr.fireZone; // 焚天煮海:灼烧火区残留
+  if (fz && g.zones.length < 60) {
+    g.addZone({
+      x: pr.x, y: pr.y, r: fz.r, life: fz.life, maxLife: fz.life,
+      tickDmg: fz.tickDmg, tick: 0.35, tickT: 0.35,
+      sprite: 'zone_holy', tint: '#d9662e', burnOn: 1,
+    });
+  }
+}
+
+// 雷动金钟:冲击环环缘放电(命中环缘附近至多 2 敌,青焰联动伤害)
+function ringZap(g, pr) {
+  const near = g.grid.query(pr.x, pr.y, pr.r + 60, QBX);
+  let n = 0;
+  for (let k = 0; k < near.length; k++) {
+    const e = near[k];
+    if (e.dead) continue;
+    const dx = e.x - pr.x, dy = e.y - pr.y, d2 = dx * dx + dy * dy;
+    const lo = pr.r - 50, hi = pr.r + 34 + e.r;
+    if (d2 < lo * lo || d2 > hi * hi) continue;
+    const dd = Math.sqrt(d2) || 1;
+    SYN.kx = (dx / dd) * 90; SYN.ky = (dy / dd) * 90;
+    damageEnemy(g, e, pr.dmg * pr.zapMult, SYN);
+    zapLine(g, pr.x + (dx / dd) * (pr.r - 10), pr.y + (dy / dd) * (pr.r - 10), e.x, e.y);
+    if (++n >= 2) break;
   }
 }
 
@@ -200,12 +336,20 @@ export function initCombat(g) {
 
     // 2) 玩家更新(移动 + 武器)。main.js 未调用 p.update,由战斗模块接管。
     p.update(dt, g);
+    // 疾风靴:p.dashCdMul 由 upgrades.js 维护;此处钳制使冲刺冷却实际缩短
+    // (player 内冲刺冷却 = 3×cdMult;若 player 将来直接消费 dashCdMul,此钳制自动成为空操作)
+    const dashCap = 3 * p.stats.cdMult * (p.dashCdMul || 1);
+    if (p.dash.cd > dashCap) p.dash.cd = dashCap;
 
-    // 3) 区域:圣域持续伤害 / 闪电表现
+    // 3) 区域:墨域/火区持续伤害(+施加状态)/ 落雷表现
     for (let i = g.zones.length - 1; i >= 0; i--) {
       const z = g.zones[i];
       z.life -= dt;
       if (z.life <= 0) { g.remove(g.zones, i); continue; }
+      if (z.burnOn && Math.random() < dt * 6 && g.inView(z.x, z.y, z.r + 40)) { // 火区火星
+        g.addParticles(z.x + (Math.random() - 0.5) * z.r, z.y + (Math.random() - 0.5) * z.r * 0.7,
+          { n: 1, color: '#d9662e', speed: 30, life: 0.4, size: 3, grav: -40 });
+      }
       if (z.tickDmg > 0) {
         z.tickT -= dt;
         if (z.tickT <= 0) {
@@ -215,34 +359,40 @@ export function initCombat(g) {
             const e = near[k];
             if (e.dead) continue;
             const dx = e.x - z.x, dy = e.y - z.y, rr = z.r + e.r;
-            if (dx * dx + dy * dy < rr * rr) damageEnemy(g, e, z.tickDmg, SMALL);
+            if (dx * dx + dy * dy < rr * rr) {
+              DOT.kx = 0; DOT.ky = 0;
+              damageEnemy(g, e, z.tickDmg, DOT);
+              if (z.wetOn) applyStatus(g, e, 'wet', 1.2);
+              else if (z.burnOn) applyStatus(g, e, 'burn', 1.2);
+            }
           }
         }
       }
     }
 
-    // 4) 敌人 AI + 移动 + 接触伤害 + 远处回收
+    // 4) 敌人 AI + 移动 + 元素状态 + 接触伤害 + 远处回收
     for (let i = es.length - 1; i >= 0; i--) {
       const e = es[i];
       if (e.dead) { g.remove(es, i); continue; }
       e.t += dt; e.hitCd -= dt; e.orbCd -= dt;
       if (e.flashT > 0) e.flashT -= dt;
+      if (e.status && (e.status.burn > 0 || e.status.wet > 0)) updateStatus(g, e, dt);
       const dx = px - e.x, dy = py - e.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
       const ux = dx / d, uy = dy / d;
       let vx = ux * e.speed, vy = uy * e.speed;
       switch (e.beh) {
-        case 1: { // 蝙蝠:快速小幅摆动
+        case 1: { // 夜枭:快速小幅摆动
           const s = Math.sin(e.t * 7) * 36;
           vx += -uy * s; vy += ux * s;
           break;
         }
-        case 3: { // 蜘蛛:爬行 1.6s → 突进 0.8s 循环
+        case 3: { // 蛛妖:爬行 1.6s → 突进 0.8s 循环
           const cyc = (e.t + e.aiT) % 2.4;
           if (cyc < 1.6) { vx *= 0.5; vy *= 0.5; } else { vx *= 2.7; vy *= 2.7; }
           break;
         }
-        case 5: { // 自爆虫:贴近后 0.6s 红闪引信,自爆
+        case 5: { // 火药童子:贴近后 0.6s 红闪引信,自爆
           if (e.fuse >= 0) {
             e.fuse -= dt;
             vx *= 0.12; vy *= 0.12;
@@ -250,12 +400,12 @@ export function initCombat(g) {
           } else if (d < 58) e.fuse = 0.6;
           break;
         }
-        case 7: { // 鬼火:正弦飘忽轨迹
+        case 7: { // 青灯鬼火:正弦飘忽轨迹
           const s = Math.sin(e.t * 2.8) * 52;
           vx = ux * e.speed - uy * s; vy = uy * e.speed + ux * s;
           break;
         }
-        case 9: { // 石头守卫:蓄力 0.8s 后猛冲
+        case 9: { // 石像守卫:蓄力 0.8s 后猛冲
           e.atkCd -= dt;
           if (e.state === 1) { // 蓄力(原地,红黄闪烁预警)
             e.aiT -= dt; vx = 0; vy = 0;
@@ -271,12 +421,12 @@ export function initCombat(g) {
             }
           } else if (e.atkCd <= 0 && d < 540) {
             e.state = 1; e.aiT = 0.8;
-            g.spawnText(e.x, e.y - e.r - 18, '!', { color: '#e43b44', size: 18, life: 0.6 });
+            g.spawnText(e.x, e.y - e.r - 18, '!', { color: '#b03a2e', size: 18, life: 0.6 });
             g.addParticles(e.x, e.y, { n: 6, color: '#b55088', speed: 70, life: 0.5, size: 3 });
           }
           break;
         }
-        case 10: { // 深渊领主:三阶段(追踪 + 环形/扇形弹幕 + 狂暴加速)
+        case 10: { // 无常尊者:三阶段(追踪 + 环形/扇形弹幕 + 狂暴加速)
           const hpf = e.hp / e.maxHp;
           const phase = hpf > 0.66 ? 1 : hpf > 0.33 ? 2 : 3;
           e.spd = phase === 1 ? 40 : phase === 2 ? 52 : 68;
@@ -341,10 +491,14 @@ export function initCombat(g) {
       const pr = prs[i];
       pr.life -= dt;
       let dead = pr.life <= 0;
-      if (pr.ring) { // 护盾冲击环:原地扩张
+      if (pr.ring) { // 金钟罩/雷动金钟冲击环:原地扩张(+雷动金钟环缘放电)
         pr.r += pr.grow * dt;
+        if (pr.zapMult) {
+          pr.zapT -= dt;
+          if (pr.zapT <= 0) { pr.zapT = pr.zapCd; ringZap(g, pr); }
+        }
         if (pr.r >= pr.maxR) dead = true;
-      } else if (pr.bm) { // 回旋镖:向玩家加速折返,返程可再命中
+      } else if (pr.bm) { // 回风/金刃轮回:向玩家加速折返,返程可再命中
         const bx = px - pr.x, by = py - pr.y;
         const bd = Math.sqrt(bx * bx + by * by) || 1;
         pr.vx += (bx / bd) * 950 * dt;
@@ -357,6 +511,13 @@ export function initCombat(g) {
         if (pr.home) steerHome(pr, dt, g);
         pr.x += pr.vx * dt; pr.y += pr.vy * dt;
         if (pr.spin) pr.rot += pr.spin * dt;
+      }
+      if (pr.trail) { // 贯日长虹:朱砂拖尾
+        pr.trailT -= dt;
+        if (pr.trailT <= 0) {
+          pr.trailT = 0.05;
+          g.addParticles(pr.x, pr.y, { n: 1, color: '#b03a2e', speed: 18, life: 0.26, size: 4 });
+        }
       }
       if (pr.fromEnemy) { // 敌方弹幕远离即回收
         const fx = pr.x - px, fy = pr.y - py;
@@ -373,7 +534,7 @@ export function initCombat(g) {
         if (fx * fx + fy * fy < rr * rr) { p.takeDamage(pr.dmg); g.remove(prs, i); }
         continue;
       }
-      if (pr.ghost) continue; // 圣水瓶飞行中不参与命中
+      if (pr.ghost) continue; // 墨雨瓶飞行中不参与命中
       // 玩家弹幕 → 敌人
       const near = g.grid.query(pr.x, pr.y, pr.r + 46, g.qbuf);
       for (let k = 0; k < near.length; k++) {
@@ -382,11 +543,18 @@ export function initCombat(g) {
         const ex = e.x - pr.x, ey = e.y - pr.y, rr = pr.r + e.r;
         if (ex * ex + ey * ey < rr * rr) {
           pr.hitIds.add(e.id);
+          let dmg = pr.dmg;
+          if (pr.bmRet && pr.retMult) dmg *= pr.retMult; // 金刃轮回:回程双倍伤
           if (pr.ring) { // 冲击环:沿径向击退
             const dd = Math.sqrt(ex * ex + ey * ey) || 1;
             HIT.kx = (ex / dd) * 120; HIT.ky = (ey / dd) * 120;
-          } else { HIT.kx = pr.vx * 0.09; HIT.ky = pr.vy * 0.09; }
-          damageEnemy(g, e, pr.dmg, HIT);
+          } else {
+            const km = pr.kbMult || 1;
+            HIT.kx = pr.vx * 0.09 * km; HIT.ky = pr.vy * 0.09 * km;
+          }
+          damageEnemy(g, e, dmg, HIT);
+          if (pr.burnHit) applyStatus(g, e, 'burn', pr.burnHit); // 焚天类:施加灼烧
+          if (pr.wetHit) applyStatus(g, e, 'wet', pr.wetHit);
           if (pr.pierce > 0) pr.pierce--;
           else {
             if (pr.boomR) explode(g, pr);
@@ -398,23 +566,24 @@ export function initCombat(g) {
     }
   });
 
-  // ---- 绘制:区域(圣域光圈 / 竖向闪电) ----
+  // ---- 绘制:区域(墨域 / 火区 / 落雷符纹) ----
   g.addDrawer('zones', ctx => {
     for (const z of g.zones) {
+      if (!g.inView(z.x, z.y, 60 + (z.r || 0) + (z.sprite === 'lightning_v' ? 60 : 0))) continue; // 视口剔除
       const f = z.maxLife ? Math.max(0, Math.min(1, z.life / z.maxLife)) : 1;
       if (z.sprite === 'lightning_v') {
         drawSprite(ctx, 'lightning_v', z.x, z.y - 30, { alpha: Math.min(1, f * 1.8) });
       } else {
-        drawSprite(ctx, z.sprite || 'zone_holy', z.x, z.y, { alpha: 0.3 + 0.45 * f, scale: z.r ? z.r / 72 : 1 });
+        drawSprite(ctx, z.sprite || 'zone_holy', z.x, z.y, { alpha: 0.3 + 0.45 * f, scale: z.r ? z.r / 72 : 1, tint: z.tint || null });
       }
     }
   });
 
-  // ---- 绘制:敌人(闪白/引信红闪/蓄力预警/精英橙圈/血条) ----
+  // ---- 绘制:敌人(闪白/引信红闪/蓄力预警/精英圈/血条) ----
   g.addDrawer('enemies', ctx => {
     const p = g.player;
     for (const e of g.enemies) {
-      if (e.dead) continue;
+      if (e.dead || !g.inView(e.x, e.y, 60)) continue; // 视口剔除
       const bob = (e.beh === 1 || e.beh === 7) ? Math.sin(e.t * 7) * 3 : Math.sin(e.t * 5) * 1.5;
       let tint = null;
       if (e.flashT > 0) tint = '#ffffff';
@@ -424,15 +593,15 @@ export function initCombat(g) {
         flip: p ? p.x < e.x : false, tint,
         alpha: e.mini ? 0.85 : 1, scale: e.mini ? 0.62 : 1,
       });
-      if (e.elite) { // 精英橙圈标记
-        ctx.strokeStyle = '#feae34'; ctx.lineWidth = 2;
+      if (e.elite) { // 精英朱砂圈标记
+        ctx.strokeStyle = '#b03a2e'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(e.x, e.y + bob, e.r + 6, 0, 7); ctx.stroke();
       }
       if ((e.elite || e.boss) && e.hp < e.maxHp) { // 精英/Boss 头顶小血条
         const w = e.r * 1.8, hpf = Math.max(0, e.hp / e.maxHp);
         ctx.fillStyle = 'rgba(0,0,0,0.55)';
         ctx.fillRect(e.x - w / 2, e.y - e.r - 14, w, 4);
-        ctx.fillStyle = e.boss ? '#feae34' : '#e43b44';
+        ctx.fillStyle = e.boss ? '#b03a2e' : '#e43b44';
         ctx.fillRect(e.x - w / 2, e.y - e.r - 14, w * hpf, 4);
       }
     }
@@ -441,16 +610,17 @@ export function initCombat(g) {
   // ---- 绘制:弹幕(冲击环为扩张圆环,其余为精灵) ----
   g.addDrawer('projectiles', ctx => {
     for (const pr of g.projectiles) {
+      if (!g.inView(pr.x, pr.y, 60 + (pr.ring ? pr.maxR : 0))) continue; // 视口剔除
       if (pr.ring) {
         const f = Math.max(0, pr.r / pr.maxR);
         ctx.globalAlpha = Math.max(0, 0.9 - f * 0.55);
-        ctx.strokeStyle = '#7df9ff'; ctx.lineWidth = 3;
+        ctx.strokeStyle = pr.ringCol || '#7df9ff'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r, 0, 7); ctx.stroke();
         ctx.globalAlpha = Math.max(0, 0.35 - f * 0.2);
         if (pr.r > 10) { ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.r - 8, 0, 7); ctx.stroke(); }
         ctx.globalAlpha = 1;
       } else {
-        drawSprite(ctx, pr.sprite, pr.x, pr.y, { angle: pr.rot || 0, tint: pr.tint || null });
+        drawSprite(ctx, pr.sprite, pr.x, pr.y, { angle: pr.rot || 0, tint: pr.tint || null, scale: pr.scale || 1 });
       }
     }
   });

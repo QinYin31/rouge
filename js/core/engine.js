@@ -66,6 +66,10 @@ export class Engine {
   resume() { this.paused = Math.max(0, this.paused - 1); }
   remove(arr, i) { arr[i] = arr[arr.length - 1]; arr.pop(); }
   shake(mag, dur) { this.cam && this.cam.shake(mag, dur); }
+  inView(x, y, margin = 40) { // 视口剔除:所有实体 drawer 应使用
+    const v = this.cam.viewRect(this.w, this.h);
+    return x > v.x0 - margin && x < v.x1 + margin && y > v.y0 - margin && y < v.y1 + margin;
+  }
 
   addEnemy(e) { this.enemies.push(e); }
   addProjectile(p) { p.hitIds = p.hitIds || new Set(); this.projectiles.push(p); }

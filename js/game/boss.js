@@ -1,4 +1,4 @@
-// ===== ⚔️ 战斗agent 名下:Boss 系统(300s 石头守卫 / 600s 深渊领主 / 无尽复读) =====
+// ===== ⚔️ 战斗agent 名下:Boss 系统(300s 石像守卫 / 600s 无常尊者 / 无尽复读) =====
 // Boss 类型定义在 enemies.js 的 ENEMY_TYPES 中(不进常规刷怪池),行为 AI 由 enemies.js 按 beh 驱动;
 // 本模块负责:定时召唤、血条引用 g.boss、死亡大爆炸/震屏/宝箱、最终 Boss 通关事件。
 import { spawnEnemy, shakeIf, combatState } from './enemies.js';
@@ -25,18 +25,18 @@ export function initBoss(g) {
   g.addUpdater(() => {
     if (!g.player || !combatState.runActive) return;
     const t = g.time;
-    // 300s 小 Boss:石头守卫(冲撞型)
+    // 300s 小 Boss:石像守卫(冲撞型)
     if (!s300 && t >= 300) {
       s300 = true;
       spawnBoss('boss_golem', 1, 1 + t / 1200);
     }
-    // 600s 最终 Boss:深渊领主(三阶段弹幕型)
+    // 600s 最终 Boss:无常尊者(三阶段弹幕型)
     if (!s600 && t >= 600) {
       s600 = true;
       g._finalBoss = true; // 通知 spawner 停止常规刷怪
       spawnBoss('boss_overlord', 1, 1);
     }
-    // 无尽模式:每 150s 复读石头守卫(强度继续随时间增长)
+    // 无尽模式:每 150s 复读石像守卫(强度继续随时间增长)
     if (g._endless) {
       if (!endlessArmed) { endlessArmed = true; nextGolem = t + 120; }
       else if (t >= nextGolem && (!g.boss || g.boss.dead)) {

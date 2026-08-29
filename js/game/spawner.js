@@ -4,7 +4,7 @@ import { spawnEnemy, combatState } from './enemies.js';
 const MAX_E = 220;          // 同屏普通怪上限(超过不刷普通怪)
 const TAU = Math.PI * 2;
 
-// 阶段刷怪池:[类型, 权重] —— 0-60s 史莱姆/蝙蝠 → 120s 加骷髅/蜘蛛 → 240s 加蛮兵/自爆虫 → 360s 加岩龟/鬼火
+// 阶段刷怪池:[类型, 权重] —— 0-60s 纸妖/夜枭 → 120s 加骨卫/蛛妖 → 240s 加金刚力士/火药童子 → 360s 加铁甲龟/青灯鬼火
 const POOLS = [
   [['slime', 6], ['bat', 3]],
   [['slime', 4], ['bat', 4], ['skeleton', 3]],
@@ -54,17 +54,21 @@ export function initSpawner(g) {
     const t = g.time;
     // 600s 后交给 Boss 流程(最终 Boss 期间停刷);无尽模式解除限制
     if (!endless && (t >= 600 || g._finalBoss)) return;
+    // 前 120s 玩家尚在成长期,刷怪密度与同屏上限下调 15%,2 分钟后恢复原曲线
+    const early = !endless && t < 120;
+    const cap = early ? (MAX_E * 0.85) | 0 : MAX_E;
 
     // 怪潮:每 45~60s 一圈同种怪环形包围
     hordeT -= dt;
     if (hordeT <= 0) {
       hordeT = (endless ? 38 : 46) + Math.random() * 14;
-      doHorde(g, p, t);
+      doHorde(g, p, t, early);
     }
 
-    // 持续小怪:间隔随时间缩短(0.9s → 0.24s,无尽 0.15s)
+    // 持续小怪:间隔随时间缩短(0.9s → 0.24s,无尽 0.15s);前期间隔 ×1/0.85(密度 -15%)
     eliteCd -= dt;
-    const interval = Math.max(endless ? 0.15 : 0.24, 0.9 - t * 0.0011);
+    const base = Math.max(endless ? 0.15 : 0.24, 0.9 - t * 0.0011);
+    const interval = early ? base / 0.85 : base;
     acc += dt;
     let budget = (acc / interval) | 0;
     acc -= budget * interval;
@@ -73,9 +77,9 @@ export function initSpawner(g) {
     const pool = POOLS[poolIdx(t)];
     const hpM = hpMultAt(t), dmgM = dmgMultAt(t), spdM = spdMultAt(t);
     for (let i = 0; i < budget; i++) {
-      if (g.enemies.length >= MAX_E) break;
+      if (g.enemies.length >= cap) break;
       ringSpot(g, p);
-      // 精英:冷却好了有小概率出现(最小间隔 ~16-24s);360s 后可能出死神
+      // 精英:冷却好了有小概率出现(最小间隔 ~16-24s);360s 后可能出黑无常
       if (eliteCd <= 0 && Math.random() < 0.09) {
         const et = (t >= 360 && Math.random() < 0.4) ? 'reaper' : pickWeighted(pool);
         spawnEnemy(g, et, SP.x, SP.y, { hpMult: hpM, dmgMult: dmgM, speedMult: spdM, elite: true });
@@ -87,13 +91,14 @@ export function initSpawner(g) {
   });
 }
 
-// 怪潮:一圈同种怪包围玩家(血量 ×0.75,数量随时间增加到 30)
-function doHorde(g, p, t) {
-  if (g.enemies.length > 170) return;
+// 怪潮:一圈同种怪包围玩家(血量 ×0.75,数量随时间增加到 30;前期数量 -15%)
+function doHorde(g, p, t, early) {
+  if (g.enemies.length > (early ? 145 : 170)) return;
   const type = pickWeighted(POOLS[poolIdx(t)]);
   const zoom = g.cam ? g.cam.zoom : 1;
   const R = Math.hypot(g.w, g.h) / (2 * zoom) + 60;
-  const n = Math.min(30, 14 + ((t / 45) | 0));
+  let n = Math.min(30, 14 + ((t / 45) | 0));
+  if (early) n = (n * 0.85) | 0;
   const off = Math.random() * TAU;
   const hpM = hpMultAt(t) * 0.75, dmgM = dmgMultAt(t), spdM = spdMultAt(t);
   for (let i = 0; i < n; i++) {
@@ -101,7 +106,7 @@ function doHorde(g, p, t) {
     const a = off + (i / n) * TAU + (Math.random() - 0.5) * 0.15;
     spawnEnemy(g, type, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R, { hpMult: hpM, dmgMult: dmgM, speedMult: spdM });
   }
-  g.spawnText(p.x, p.y - 70, '怪潮来袭!', { color: '#e43b44', size: 20, life: 1.6 });
+  g.spawnText(p.x, p.y - 70, '怪潮来袭!', { color: '#b03a2e', size: 20, life: 1.6 });
 }
 
 // 通关后无尽模式:继续刷怪且强度随时间继续增长

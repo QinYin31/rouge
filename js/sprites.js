@@ -1,44 +1,65 @@
-// ===== 🎨 美术agent 名下:全部像素精灵定义与烘焙 =====
+// ===== 🎨 美术agent 名下:全部像素精灵定义与烘焙(水墨武侠版) =====
 // 本文件上半部分为【纯数据】(可在 node 中 import 做校验,不依赖 document);
 // 只有 bake()/drawSprite() 依赖 canvas API。
 // 点阵格式:字符串数组,每字符一个调色板键;'.' 或 ' ' 为透明。
+//
+// 【水墨调色板设计】
+//  宣纸:P 亮纸 / p 纸底 / e 纸影 / E 深纸(土径)/ D 土斑 / w 纸白(骨·高光)
+//  墨:  k 浓墨 / K 重墨 / M 中墨 / m 淡墨 / g 淡墨灰(远山·干笔)
+//  朱砂: r 朱砂 / R 朱砂亮 / q 朱砂暗(点睛专用)
+//  青焰: c 青焰亮 / C 青焰 / u 青焰深 / U 青焰渊
+//  辅色(水墨画之赭石·藤黄·花青): n 赭木 / N 深赭 / o 藤黄金 / O 亮金 / y 淡金
+//        v 竹青 / V 竹深 / J 玉青 / s 枯褐 / t 青灰(龟甲·道袍)
+//  半透明键(预烘焙晕染,禁止运行时 shadowBlur):
+//        x 墨晕落影 / a·b·A 青焰晕(浓→淡) / h·H 朱砂晕 / l·L 墨晕 / j 金晕 / i 纸光
 
 export const SCALE = 3;
 
-// —— EDG32(Endesga32)风格调色板,32 色 ——
-// 命名直觉:k 轮廓黑 / K 深藏青 / A 暗钢 / B 中钢 / C 亮钢 / D 银白 / w 白
-// r 暗红 R 红 q 粉 | o 橙 O 金橙 y 黄 | g 深绿 G 绿 v 亮绿
-// E 墨青 b 深蓝 u 蓝 c 亮青 | s 肤暗 S 肤 n 棕 N 深棕 d 近黑棕
-// m 锈红 M 浅锈 f 沙棕 F 米白 | P 品紫 V 暗紫 t 龟青
-// 带透明度的辅助色:x 落影 / h·j·l 圣域光圈(烘焙即半透明)
+// —— 水墨色板(带 alpha 的键即为烘焙进点阵的光晕/晕染) ——
 export const PAL = {
-  k: '#181425', K: '#262b44', A: '#3a4466', B: '#5a6988', C: '#8b9bb4',
-  D: '#c0cbdc', w: '#ffffff',
-  r: '#a22633', R: '#e43b44', q: '#f6757a',
-  o: '#f77622', O: '#feae34', y: '#fee761',
-  g: '#265c42', G: '#3e8948', v: '#63c74d',
-  E: '#193c3e', b: '#124e89', u: '#0099db', c: '#2ce8f5',
-  s: '#c28569', S: '#e8b796', n: '#b86f50', N: '#733e39', d: '#3e2731',
-  m: '#be4a2f', M: '#d77643', f: '#e4a672', F: '#ead4aa',
-  P: '#b55088', V: '#68386c', t: '#9ac1c9',
-  x: '#0b0d1759',
-  h: '#fee76155', j: '#feae3473', l: '#fffbe03d', i: '#fffbe88a',
+  // 宣纸系
+  P: '#f2ecdd', p: '#ece5d3', e: '#e2dabf', E: '#d3c7a6', D: '#c2b48e',
+  w: '#faf6ea',
+  // 墨系
+  k: '#2b2b2b', K: '#3f4140', M: '#6b6b5d', m: '#8a8a7a', g: '#b9b3a2',
+  // 朱砂系
+  r: '#b03a2e', R: '#c85545', q: '#8c2f27',
+  // 青焰系
+  c: '#a8e2e8', C: '#7fd4de', u: '#5fb8c4', U: '#41899b',
+  // 赭石 / 藤黄 / 草木 / 枯褐 / 青灰
+  n: '#9c8455', N: '#77643f', o: '#c9972f', O: '#e2b94e', y: '#efe0b0',
+  v: '#7f8a70', V: '#5c6b52', J: '#4f9673', s: '#5d5344', t: '#5d6b66',
+  // 半透明晕染键(烘焙即半透明)
+  x: '#2b2b2b38',             // 落影墨晕
+  a: '#5fb8c46e',             // 青焰晕·浓
+  b: '#7fd4de45',             // 青焰晕·中
+  A: '#a8e2e822',             // 青焰晕·淡
+  h: '#c8554566',             // 朱砂晕·浓
+  H: '#c8554536',             // 朱砂晕·淡
+  l: '#6b6b5d55',             // 墨晕·浓
+  L: '#6b6b5d2e',             // 墨晕·淡
+  j: '#c9972f5c',             // 金晕
+  i: '#faf6ea77',             // 纸光
 };
 
-// 程序化生成圣域光圈(纯计算,仍属纯数据):同心亮环 + 中心微光
+// 程序化生成淡墨扩散圆环(纯计算,仍属纯数据):同心墨环 + 干笔飞白
 const ZONE_HOLY = (() => {
   const S = 48, g = Array.from({ length: S }, () => Array(S).fill('.'));
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     const d = Math.hypot(x - 23.5, y - 23.5);
     if (d > 23) continue;
-    if (d > 21.2) g[y][x] = 'i';            // 外缘亮环
-    else if (d > 19.4) g[y][x] = 'h';       // 外柔环
-    else if (d > 15.2) g[y][x] = '.';       // 呼吸暗隙
-    else if (d > 13.4) g[y][x] = 'j';       // 中环
-    else if (d > 11.2) g[y][x] = '.';
-    else if (d > 9.8) g[y][x] = 'h';
-    else if (d > 5.2) g[y][x] = '.';
-    else g[y][x] = 'l';                     // 中心微光
+    // 干笔噪声:同一像素带内按位置决定降级(墨环不均匀,似笔锋擦过)
+    const bristle = (x * 7 + y * 13 + ((x * y) % 5)) % 11;
+    let ch = '.';
+    if (d > 21.4) ch = bristle % 3 === 0 ? '.' : 'L';       // 外缘淡晕
+    else if (d > 19.6) ch = bristle < 2 ? 'L' : 'l';        // 外环(浓)
+    else if (d > 15.6) ch = '.';                            // 呼吸留白
+    else if (d > 13.6) ch = bristle < 3 ? 'L' : 'l';        // 中环
+    else if (d > 11.2) ch = '.';
+    else if (d > 9.6) ch = bristle % 4 === 0 ? '.' : 'L';   // 内柔环
+    else if (d > 5.0) ch = '.';
+    else ch = 'L';                                          // 中心墨点
+    g[y][x] = ch;
   }
   return g.map(r => r.join(''));
 })();
@@ -63,8 +84,10 @@ function line(g, x0, y0, x1, y1, r, c) { // 圆头粗线
   const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1) * 2;
   for (let i = 0; i <= n; i++) pell(g, x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, r, r, c);
 }
-const SOLID = ch => ch !== '.' && ch !== 'x';
-function outlinePass(g) { // 给所有实体外缘补 1px 描边('x' 落影不描)
+// 实体键(参与自动描边):透明 '.' 与半透明晕染/落影不描边
+const _ALPHA = new Set(['.', ' ', 'x', 'a', 'b', 'A', 'h', 'H', 'l', 'L', 'j', 'i']);
+const SOLID = ch => !_ALPHA.has(ch);
+function outlinePass(g) { // 给所有实体外缘补 1px 浓墨描边
   const S = g.length, out = g.map(r => r.slice());
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     if (g[y][x] !== '.') continue;
@@ -75,92 +98,112 @@ function outlinePass(g) { // 给所有实体外缘补 1px 描边('x' 落影不�
 }
 const toRows = g => g.map(r => r.join(''));
 
-// 石头守卫 40×40:巨型岩人,苔藓覆盖,胸口熔核
+// 墨染乾坤 24×24(进化图标):浓墨双环如砚池漩涡,带干笔飞白
+const W_HOLY_EVO = (() => {
+  const S = 24, g = grid(S), C = 11.5;
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const d = Math.hypot(x - C, y - C);
+    const bristle = (x * 5 + y * 11) % 9;
+    let ch = '.';
+    if (d > 12.6) ch = '.';
+    else if (d > 10.6) ch = bristle < 2 ? 'M' : 'k';   // 外环浓墨(带飞白)
+    else if (d > 9.2) ch = bristle % 3 === 0 ? '.' : 'l'; // 外环墨晕
+    else if (d > 7.2) ch = '.';
+    else if (d > 6.0) ch = bristle < 2 ? 'm' : 'M';    // 中环中墨
+    else if (d > 4.4) ch = '.';
+    else if (d > 3.0) ch = bristle % 4 === 0 ? '.' : 'l';
+    else if (d > 1.9) ch = '.';
+    else ch = 'k';                                     // 中心墨点
+    g[y][x] = ch;
+  }
+  return toRows(g);
+})();
+
+// 石像守卫 40×40:灰石傀儡,身布斧凿裂纹,胸口青焰石核
 const BOSS_GOLEM = (() => {
   const g = grid(40), CX = 19.5;
-  // 腿与脚
-  prect(g, 13, 28, 17, 34, 'B'); prect(g, 22, 28, 26, 34, 'B');
-  prect(g, 12, 33, 18, 37, 'A'); prect(g, 21, 33, 27, 37, 'A');
-  prect(g, 13, 33, 17, 34, 'B'); prect(g, 22, 33, 26, 34, 'B');
-  // 躯干(亮边朝左上)
-  pell(g, CX, 22, 12.5, 11, 'C'); pell(g, CX + 1, 23, 11.4, 10, 'B'); pell(g, CX + 2.5, 24, 9.8, 9, 'A');
-  pell(g, CX + 1, 23, 11.4, 10, 'B'); pell(g, CX, 23, 10.5, 9.4, 'B');
+  // 腿与脚(石块感:上亮下暗)
+  prect(g, 13, 28, 17, 34, 'm'); prect(g, 22, 28, 26, 34, 'm');
+  prect(g, 12, 33, 18, 37, 'M'); prect(g, 21, 33, 27, 37, 'M');
+  prect(g, 13, 33, 17, 34, 'm'); prect(g, 22, 33, 26, 34, 'm');
+  // 躯干(左上受光,右下背光)
+  pell(g, CX, 22, 12.5, 11, 'g'); pell(g, CX + 1, 23, 11.4, 10, 'm'); pell(g, CX + 2.5, 24, 9.8, 9, 'M');
+  pell(g, CX + 1, 23, 11.4, 10, 'm'); pell(g, CX, 23, 10.5, 9.4, 'm');
   // 手臂 + 巨拳(两侧)
   for (const s of [-1, 1]) {
     const ax = CX + s * 13.2;
-    pell(g, ax, 20, 4.6, 8.4, 'C'); pell(g, ax + s * 0.8, 21, 3.6, 7.2, 'B');
-    pell(g, ax, 31.5, 5.2, 4.8, 'C'); pell(g, ax + s * 0.6, 32, 4.2, 3.8, 'B');
-    prect(g, ax - 3 + s, 29, ax + 2 + s, 30, 'A'); // 拳纹
+    pell(g, ax, 20, 4.6, 8.4, 'g'); pell(g, ax + s * 0.8, 21, 3.6, 7.2, 'm');
+    pell(g, ax, 31.5, 5.2, 4.8, 'g'); pell(g, ax + s * 0.6, 32, 4.2, 3.8, 'm');
+    prect(g, ax - 3 + s, 29, ax + 2 + s, 30, 'M'); // 拳纹裂纹
   }
   // 头(略陷入双肩)
-  pell(g, CX, 9.5, 8, 6.4, 'C'); pell(g, CX + 0.8, 10.2, 6.9, 5.4, 'B');
-  // 眉、眼、嘴裂纹
-  prect(g, 12, 6, 17, 7, 'A'); prect(g, 22, 6, 27, 7, 'A');
+  pell(g, CX, 9.5, 8, 6.4, 'g'); pell(g, CX + 0.8, 10.2, 6.9, 5.4, 'm');
+  // 眉、眼、嘴裂纹(青焰石核目光)
+  prect(g, 12, 6, 17, 7, 'M'); prect(g, 22, 6, 27, 7, 'M');
   prect(g, 13, 7, 17, 9, 'k'); prect(g, 22, 7, 26, 9, 'k');
   prect(g, 15, 8, 16, 8, 'c'); prect(g, 23, 8, 24, 8, 'c');
   prect(g, 17, 13, 22, 13, 'k'); ppx(g, 18, 12, 'k'); ppx(g, 21, 12, 'k');
-  // 胸口熔核
-  pell(g, CX, 25.5, 4.6, 4, 'k'); pell(g, CX, 25.5, 3.1, 2.6, 'c'); ppx(g, CX, 25, 'w');
-  // 苔藓
-  pell(g, 10.5, 15.5, 2.6, 1.8, 'G'); pell(g, 29, 28, 2.2, 1.5, 'g');
-  pell(g, 14, 31, 1.7, 1.2, 'G'); pell(g, 26, 12, 1.5, 1.1, 'g');
+  // 胸口青焰石核(预烘焙微晕)
+  pell(g, CX, 25.5, 4.6, 4, 'k'); pell(g, CX, 25.5, 3.4, 2.9, 'a'); pell(g, CX, 25.5, 2.4, 2.0, 'c');
+  ppx(g, CX, 25, 'w');
+  // 斧凿裂纹与苔点
+  line(g, 8, 18, 12, 24, 0.5, 'k'); line(g, 27, 26, 30, 21, 0.5, 'k');
+  line(g, 24, 34, 28, 37, 0.5, 'k'); line(g, 14, 11, 17, 8, 0.4, 'k');
+  pell(g, 10.5, 15.5, 2.2, 1.5, 'v'); pell(g, 29, 28, 1.9, 1.3, 'V');
+  pell(g, 14, 31, 1.4, 1.0, 'v'); pell(g, 26, 12, 1.2, 0.9, 'V');
   prect(g, 8, 38, 31, 38, 'x'); // 落影(先画,outlinePass 会跳过)
   return toRows(outlinePass(g));
 })();
 
-// 深渊领主 56×56:双骨角 + 熔心符文 + 撕裂披风
+// 无常尊者 56×56:黑袍魔头,高帽垂符,朱砂点睛,浓墨撕裂下摆
 const BOSS_OVERLORD = (() => {
   const g = grid(56), CX = 27.5;
-  // 披风(先画):肩部向两侧下摆展开,底缘撕裂
+  // 黑袍(先画):肩部向两侧下摆展开,底缘撕裂
   for (let y = 20; y <= 47; y++) {
     const t = (y - 20) / 27;
     const x0 = Math.round(15 - 12 * t), x1 = Math.round(40 + 12 * t);
     for (let x = x0; x <= x1; x++) {
       if (y >= 44 && (x * 5 + y * 3) % 13 < 3) continue; // 撕裂锯齿(稀疏)
-      ppx(g, x, y, x < x0 + 2 || x > x1 - 2 ? 'V' : 'P');
+      ppx(g, x, y, x < x0 + 2 || x > x1 - 2 ? 'k' : 'K'); // 边缘浓墨,袍身重墨
     }
   }
-  // 手臂(垂于披风之上)+ 利爪
+  // 袍身淡墨飞白(笔触感)
+  line(g, 22, 26, 20, 40, 1.2, 'M'); line(g, 33, 28, 35, 42, 1.0, 'M');
+  line(g, 26, 24, 25, 44, 0.8, 'M');
+  // 手臂(垂于袍上)+ 利爪
   for (const s of [-1, 1]) {
     const ax = CX + s * 12;
-    line(g, ax, 25, ax + s * 2.5, 38, 3.2, 'P');
-    line(g, ax + s * 0.8, 26, ax + s * 2.2, 36, 2, 'V');
+    line(g, ax, 25, ax + s * 2.5, 38, 3.2, 'K');
+    line(g, ax + s * 0.8, 26, ax + s * 2.2, 36, 2, 'k');
     for (let f = -1; f <= 1; f++) line(g, ax + s * 2.5 + f, 38, ax + s * 2.5 + f * 1.6, 43, 0.9, 'k');
   }
-  // 躯干 + 胸口符文熔心
-  pell(g, CX, 31, 9.2, 11.5, 'V');
-  pell(g, CX - 1, 30, 7.6, 9.6, 'V');
-  pell(g, CX, 30.5, 3.6, 4.6, 'k'); pell(g, CX, 30.5, 2.4, 3.4, 'O'); pell(g, CX, 30.5, 1.2, 1.8, 'y');
-  ppx(g, CX, 29.5, 'w');
-  // 肩甲
+  // 腰间朱砂绦带
+  prect(g, 20, 30, 35, 31, 'r'); prect(g, 19, 30, 20, 33, 'R');
+  // 胸口镇魂印(朱砂圆印)
+  pell(g, CX, 26.5, 3.4, 4.2, 'r'); pell(g, CX, 26.5, 2.0, 2.6, 'R'); ppx(g, CX - 1, 26, 'y');
+  // 肩部
   for (const s of [-1, 1]) {
     const sx = CX + s * 13;
-    pell(g, sx, 21.5, 6.4, 4.6, 'P'); pell(g, sx + s, 22.2, 5.2, 3.6, 'V');
-    prect(g, Math.round(sx) - 3, 18, Math.round(sx) + 2, 18, 'O'); // 甲缘金饰
+    pell(g, sx, 21.5, 6.4, 4.6, 'K'); pell(g, sx + s, 22.2, 5.2, 3.6, 'k');
+    prect(g, Math.round(sx) - 3, 18, Math.round(sx) + 2, 18, 'm'); // 肩缘淡墨勾
   }
-  // 头
-  pell(g, CX, 13, 7.6, 7.2, 'V'); pell(g, CX - 1, 13.6, 6.4, 6, 'P');
-  pell(g, CX - 0.5, 13.8, 5.6, 5.2, 'V');
-  // 眼(红瞳)+ 嘴(獠牙)
-  prect(g, 20, 10, 24, 14, 'k'); prect(g, 31, 10, 35, 14, 'k');
-  prect(g, 21, 11, 23, 13, 'R'); prect(g, 32, 11, 34, 13, 'R');
-  ppx(g, 21, 11, 'q'); ppx(g, 32, 11, 'q');
-  prect(g, 24, 17, 31, 17, 'k'); ppx(g, 25, 18, 'q'); ppx(g, 28, 18, 'q'); ppx(g, 30, 18, 'q');
-  // 双骨角(上拱曲线)
-  for (const s of [-1, 1]) {
-    for (let i = 0; i <= 12; i++) {
-      const t = i / 12;
-      const x = CX + s * (5 + 13 * t);
-      const y = 7.5 - 6.2 * t + Math.sin(t * Math.PI) * 1.6;
-      pell(g, x, y, 1.7, 1.7, 'F');
-      pell(g, x + s * 0.7, y + 0.9, 0.9, 0.9, 'd');
-    }
-    ppx(g, CX + s * 17.6, 1.6, 'w'); // 角尖高光
-  }
-  // 披风下利爪足
+  // 脸(惨白)+ 朱砂瞳
+  pell(g, CX, 13.5, 6.8, 6.4, 'k'); pell(g, CX - 0.6, 13.8, 5.6, 5.2, 'w');
+  pell(g, CX - 0.8, 14, 4.8, 4.4, 'w');
+  prect(g, 22, 11, 25, 12, 'k'); prect(g, 30, 11, 33, 12, 'k');     // 浓眉
+  prect(g, 23, 13, 24, 14, 'r'); prect(g, 31, 13, 32, 14, 'r');     // 朱砂瞳
+  ppx(g, 23, 13, 'R'); ppx(g, 31, 13, 'R');
+  prect(g, 25, 17, 30, 17, 'k'); ppx(g, 26, 18, 'k'); ppx(g, 29, 18, 'k'); // 抿口獠影
+  // 高帽(白纸高帽,前贴朱砂符)
+  prect(g, 22, 1, 33, 9, 'w'); prect(g, 22, 1, 33, 1, 'k');
+  prect(g, 21, 9, 34, 10, 'k');                                     // 帽檐
+  prect(g, 24, 3, 26, 7, 'r'); ppx(g, 25, 5, 'w');                  // 帽前朱砂符印
+  line(g, 20, 9.5, 20, 17, 0.8, 'p'); ppx(g, 20, 13, 'r');          // 垂符纸条
+  line(g, 35, 9.5, 35, 17, 0.8, 'p'); ppx(g, 35, 15, 'r');
+  // 袍下利爪足
   for (const s of [-1, 1]) {
     const fx = CX + s * 5.5;
-    prect(g, Math.round(fx) - 2, 46, Math.round(fx) + 2, 50, 'V');
+    prect(g, Math.round(fx) - 2, 46, Math.round(fx) + 2, 50, 'K');
     for (let f = -1; f <= 1; f++) line(g, fx + f * 1.6, 50, fx + f * 2.1, 53, 0.8, 'k');
   }
   prect(g, 14, 54, 41, 54, 'x'); // 落影(先画,outlinePass 会跳过)
@@ -170,919 +213,1126 @@ const BOSS_OVERLORD = (() => {
 // ===== 点阵图集 =====
 export const PIX = {
 
-  // ---------------- 英雄(16×16,2 帧走路,默认朝右) ----------------
+  // ---------------- 英雄(16×16,2 帧走路,默认朝右;写意剪影 + 笔触感) ----------------
 
-  // 战士:钢盔红缨 + 红色战裙,敦实轮廓
+  // 剑客:黑衣斗篷 + 长剑,朱砂腰绦,墨发束顶
   hero_knight_0: [
-    '......kRRk......',
-    '.....kCRRCk.....',
-    '....kCCCCCCk....',
-    '....kCKKDKKCk...',
-    '....kCCDDCCCk...',
-    '.....kkkkkk.....',
-    '....kAACCAAk....',
-    '...kACkRRkCAk...',
-    '..kACCkRRkCCAk..',
-    '..kACkRRRRkCAk..',
-    '..kACkRRRRkCAk..',
-    '..kAkyyyyyykAk..',
-    '...kkkRRRRkkk...',
-    '......kRRk......',
-    '....kKk..kKk....',
-    '....kkk..kkk....',
+    '................',
+    '......kkkk......',
+    '.....kKKKKk..k..',
+    '.....kKwwkwk.wk.',
+    '.....kKwwwwk.wk.',
+    '......kKKk...wk.',
+    '...kKKKKKKKk.wk.',
+    '..kKKKKKKKKKkwk.',
+    '..kKKrrRRrrKkwk.',
+    '.kKKKKKKKKKKkoo.',
+    '.kKKKKKKKKKKkNk.',
+    '.kKKKKKKKKKKkk..',
+    '..kKKkKKkKKk....',
+    '....kKk.kKk.....',
+    '....kk...kk.....',
+    '................',
   ],
   hero_knight_1: [
-    '.....kRRk.......',
-    '.....kCRRCk.....',
-    '....kCCCCCCk....',
-    '....kCKKDKKCk...',
-    '....kCCDDCCCk...',
-    '.....kkkkkk.....',
-    '....kAACCAAk....',
-    '...kACkRRkCAk...',
-    '..kACCkRRkCCAk..',
-    '..kACkRRRRkCAk..',
-    '..kACkRRRRkCAk..',
-    '..kAkyyyyyykAk..',
-    '...kkkRRRRkkk...',
-    '......kRRk......',
-    '...kKk....kKk...',
-    '...kkk....kkk...',
+    '................',
+    '......kkkk......',
+    '.....kKKKKk..k..',
+    '.....kKwwkwk.wk.',
+    '.....kKwwwwk.wk.',
+    '......kKKk...wk.',
+    '...kKKKKKKKk.wk.',
+    '..kKKKKKKKKKkwk.',
+    '..kKKrrRRrrKkwk.',
+    '.kKKKKKKKKKKkoo.',
+    '.kKKKKKKKKKKkNk.',
+    '.kKKKKKKKKKKkk..',
+    '..kKKkKKkKKk....',
+    '...kKk...kKk....',
+    '...kk.....kk....',
+    '................',
   ],
 
-  // 法师:蓝尖帽 + 白胡 + 青袍
+  // 道人:青灰道袍 + 白须,拂尘斜指,墨髻玉簪
   hero_mage_0: [
-    '........kk......',
-    '.......kuuk.....',
-    '......kuuuuk....',
-    '.....kuuuuuuk...',
-    '....kuuuuuuuuk..',
-    '.kbbbbbbbbbbbbk.',
-    '....kSSSSSSk....',
-    '....kSKSSKSk....',
-    '....kSSSSSSk....',
-    '....kwwwwwwk....',
-    '.....kwwwwk.....',
-    '....kuwwwwuk....',
-    '...kuuuuuuuuk...',
-    '...kuuuuuuuuk...',
-    '....kuukkuuk....',
-    '....kk....kk....',
+    '.............w..',
+    '......kkk...wmw.',
+    '.....kKKKk..wmw.',
+    '....kKwwkwKkN...',
+    '....kKwwwwKkN...',
+    '....kwwwwk..N...',
+    '...kttwwwttkN...',
+    '..kttwwtttttkN..',
+    '..ttttttttttkN..',
+    '.ttttrrRRrrttk..',
+    '.tttttttttttt...',
+    '..tttttttttk....',
+    '...ttkrrktt.....',
+    '....ktk.ktk.....',
+    '....kk...kk.....',
+    '................',
   ],
   hero_mage_1: [
-    '.........kk.....',
-    '.......kuuk.....',
-    '......kuuuuk....',
-    '.....kuuuuuuk...',
-    '....kuuuuuuuuk..',
-    '.kbbbbbbbbbbbbk.',
-    '....kSSSSSSk....',
-    '....kSKSSKSk....',
-    '....kSSSSSSk....',
-    '....kwwwwwwk....',
-    '.....kwwwwk.....',
-    '....kuwwwwuk....',
-    '...kuuuuuuuuk...',
-    '...kuuuuuuuuk...',
-    '....kuukkuuk....',
-    '.....kk..kk.....',
+    '.............w..',
+    '......kkk...wmw.',
+    '.....kKKKk..wmw.',
+    '....kKwwkwKkN...',
+    '....kKwwwwKkN...',
+    '....kwwwwk..N...',
+    '...kttwwwttkN...',
+    '..kttwwtttttkN..',
+    '..ttttttttttkN..',
+    '.ttttrrRRrrttk..',
+    '.tttttttttttt...',
+    '..tttttttttk....',
+    '...ttkrrktt.....',
+    '...ktk...ktk....',
+    '...kk.....kk....',
+    '................',
   ],
 
-  // 游侠:绿兜帽 + 皮革腰带 + 背后箭羽
+  // 游侠:墨竹斗笠 + 短打劲装,背负长弓,朱砂束腰
   hero_ranger_0: [
-    '.....kkkkk......',
-    '....kGGGGGk.....',
-    '...kGGGGGGGk....',
-    '...kGkkkkkGk....',
-    '...kgSSKSGk.....',
-    '....kSSSSk......',
-    '...kGGGGGGk.....',
-    '..FkGGGGGGk.....',
-    '..NkGgGGgGk.....',
-    '..FkGGGGGGk.....',
-    '....kGGGGk......',
-    '....knnnnk......',
-    '....kGkkGk......',
-    '....kGkkGk......',
-    '....kNkkNk......',
-    '....kkk.kkk.....',
+    '................',
+    '......kkkk......',
+    '....kkMMMMkk....',
+    '..kkMMMMMMMMkk..',
+    '.....kKwwkwKk...',
+    '...N.kKwwwwKk...',
+    '.N.m.kKKKKKKk...',
+    'N..m.kKKKKKKk...',
+    'N..m.kKrrrKKk...',
+    'N..m.kKKKKKKk...',
+    '.N.m.kKKKKKKk...',
+    '...m.kKKKKKKk...',
+    '...N..kKKKKk....',
+    '.....kKk.kKk....',
+    '.....kk...kk....',
+    '................',
   ],
   hero_ranger_1: [
-    '.....kkkkk......',
-    '....kGGGGGk.....',
-    '...kGGGGGGGk....',
-    '...kGkkkkkGk....',
-    '...kgSSKSGk.....',
-    '....kSSSSk......',
-    '...kGGGGGGk.....',
-    '..FkGGGGGGk.....',
-    '..NkGgGGgGk.....',
-    '..FkGGGGGGk.....',
-    '....kGGGGk......',
-    '....knnnnk......',
-    '...kGk..kGk.....',
-    '...kGk..kGk.....',
-    '...kNk..kNk.....',
-    '...kkk..kkk.....',
+    '................',
+    '......kkkk......',
+    '....kkMMMMkk....',
+    '..kkMMMMMMMMkk..',
+    '.....kKwwkwKk...',
+    '...N.kKwwwwKk...',
+    '.N.m.kKKKKKKk...',
+    'N..m.kKKKKKKk...',
+    'N..m.kKrrrKKk...',
+    'N..m.kKKKKKKk...',
+    '.N.m.kKKKKKKk...',
+    '...m.kKKKKKKk...',
+    '...N..kKKKKk....',
+    '....kKk...kKk...',
+    '....kk.....kk...',
+    '................',
   ],
 
   // ---------------- 敌人 ----------------
 
-  // 史莱姆:圆润弹性 + 左上高光 + 眯眯眼
+  // 纸妖:皱纸成精,朱砂点睛,下摆撕裂如符纸
   slime: [
     '..............',
-    '....kkkkkk....',
-    '...kGGGGGGk...',
-    '..kGGvvGGGGk..',
-    '.kGGvGGGGGGGk.',
-    '.kGvGGGGGGGGk.',
-    '.kGGkGGGGkGGk.',
-    '.kGGkGGGGkGGk.',
-    '.kGGGGGGGGGGk.',
-    '.kGGGkkkGGGGk.',
-    '.kGGGGGGGGGGk.',
-    '..kGGGGGGGGk..',
-    '...kkkkkkkk...',
-    '....xxxxxx....',
+    '.....mmmm.....',
+    '....mppppm....',
+    '..mppPPppppm..',
+    '..mpPpppppeM..',
+    '..mpprppprpm..',
+    '..mpprppprpm..',
+    '..mppppppppm..',
+    '..mppkkkpppm..',
+    '..meppppppem..',
+    '...mpmppmpm...',
+    '....m..m..m...',
+    '.....xxxx.....',
+    '..............',
   ],
 
-  // 蝙蝠:展翅 + 红瞳獠牙
+  // 夜枭:浓墨羽身,金瞳圆睁,展翅无声
   bat: [
     '..............',
-    '.....k..k.....',
-    '.k...kKKk...k.',
-    '.kk.kkKKkk.kk.',
-    '.kVPKRKKRKPVk.',
-    'kVPPKKKKKKPPVk',
-    'kVPPKKKKKKPPVk',
-    'kVPKPkwwkPKPVk',
-    '.kVPKkKKkKPVk.',
-    '.kkVPKKKKPVkk.',
-    '...kVPKKPVk...',
-    '....kkVVkk....',
-    '.....kVVk.....',
-    '......kk......',
-  ],
-
-  // 骷髅:持竖剑
-  skeleton: [
-    '.....kkkkkk.....',
-    '....kDDDDDDk....',
-    '....kDDDDDDk....',
-    '....kDkDDkDk.kD.',
-    '....kDDDDDDk.kD.',
-    '....kkkkkkkk.kD.',
-    '....kDkDkDk..kD.',
-    '.....kDDDDk..kD.',
-    '...kkDDDDDDkkkD.',
-    '..kDDkDDDDkDyyk.',
-    '..kDDkDDDDk.kkk.',
-    '...kkkDDDkk.....',
-    '.....kDkDk......',
-    '.....kDkDk......',
-    '.....kDkDk......',
-    '.....kk.kk......',
-  ],
-
-  // 蜘蛛:多腿 + 红眼复眼
-  spider: [
-    '..............',
-    '..k........k..',
-    '.kk..kkkk..kk.',
-    '.k.kkNNNNkk.k.',
-    'kk.kNNNNNNk.kk',
-    'kkkNNnNNnNNkkk',
-    'k.kNNRNRNRNk.k',
-    '..kNNNNNNNNk..',
-    '..kNkNNNNkNk..',
-    '.kk.kNNNNk.kk.',
-    '.k..kkkkkk..k.',
-    'kk..........kk',
-    '..............',
-    '..............',
-  ],
-
-  // 蛮兵:壮硕紫皮 + 重锤
-  brute: [
-    '....kkkkkkkkkkkk....',
-    '...kPPPPPPPPPPPPk...',
-    '..kPPKPPPPPPKPPPPk..',
-    '..kPKKPPPPPPKKPPPk..',
-    '..kPPPPPPPPPPPPPPk..',
-    '..kPPPkPPPPPPkPPPk..',
-    '.kAAAkkPPPPPPkkAAAk.',
-    'kAAAAAkPPPPPPkAAAAAk',
-    'kAAkAAkPPPPPPkAAkAAk',
-    'kAk.kAkPPyyPPkAk.kAk',
-    'kAk.kAkkPyyPkAk.kAk.',
-    '.k..kAAkPyyPkAAk..k.',
-    '.....kkkPPPPkkk.....',
-    '....kPPPPPPPPPPk....',
-    '....kPPkPPPPkPPk....',
-    '....kPPk.kk.kPPk....',
-    '....kPPk....kPPk....',
-    '...kkAAk....kAAkk...',
-    '...kkkkk....kkkkk...',
-    '...xxxxxxxxxxxxxxxx.',
-  ],
-
-  // 自爆虫:身体就是炸弹,头顶引信
-  bomber: [
-    '.....kok......',
-    '......k.......',
-    '....kkkkkk....',
-    '...kKKKKKKk...',
-    '..kKwKKKKKKk..',
+    '.k..........k.',
+    '.kk........kk.',
+    '.kKk..kk..kKk.',
+    'kKKKkkkkkkKKKk',
+    'kKKKOyKKyOKKKk',
+    'kKKKOkKKOkKKKk',
+    'kKKKKKooKKKKKk',
+    '.kKKMKKKKMKk..',
     '..kKKKKKKKKk..',
-    '..kKyKKyKKKk..',
-    '..kKKKKKKKKk..',
-    '..kKkRRkKKKk..',
     '...kKKKKKKk...',
-    '....kkkkkk....',
-    '...kAkkkkAk...',
+    '....kKkkKk....',
     '....kk..kk....',
     '..............',
   ],
 
-  // 岩龟:厚重龟甲 + 探头
+  // 骨卫:白骨持刀,墨线勾形
+  skeleton: [
+    '....kkkkkkk.....',
+    '....kwwwwwwk....',
+    '....kwwwwwwk.k..',
+    '....kwkwwkwk.wk.',
+    '....kwwwwwwk.wk.',
+    '....kkkkkkkk.wk.',
+    '.....kwwwwk..wk.',
+    '...kwwwwwwwk.wk.',
+    '...kwkwkwkwk.wk.',
+    '...kwkwkwkwk.wk.',
+    '....kkkkkkkkoooo',
+    '.....kwwwwk..Nk.',
+    '.....kKk.kKk.Nk.',
+    '.....kk..kk..kk.',
+    '.....xx..xx.....',
+    '................',
+  ],
+
+  // 墨蛛:小头浓墨腹,八足斜张,朱砂复眼
+  spider: [
+    '..............',
+    '.k..........k.',
+    '..k..kkkk..k..',
+    '...kkKrrKkk...',
+    '.k..kKKKKk..k.',
+    '..kkKKKKKKkk..',
+    '.k.kKKKKKKk.k.',
+    'k..kKMKKMKk..k',
+    'k..kKKKKKKk..k',
+    '.kkkKKKKKKkkk.',
+    '...kKKKKKKk...',
+    '..k.kkkkkk.k..',
+    '.k..........k.',
+    '..............',
+  ],
+
+  // 金刚力士:浓墨魁梧,怒目朱砂,腰束赤绦
+  brute: [
+    '....kkkkkkkkkkkk....',
+    '...kKKKKKKKKKKKKk...',
+    '...kKmmKKKKKKmmKk...',
+    '...kKKrrKKKKrrKKk...',
+    '...kKKKKKKKKKKKKk...',
+    '...kKKkkkkkkkKKKk...',
+    '....kKKKKKKKKKKk....',
+    '..kMMKKKKKKKKKKMMk..',
+    '.kMMKKKKrrrrKKKKMMk.',
+    'kMMKkKKKrrrrKKKkKMMk',
+    'kMMk.KKKKrrKKKK.kMMk',
+    'kMk..kKKKKKKKKk..kMk',
+    '.k...kKKKKKKKKk...k.',
+    '.....kKKKkkKKKk.....',
+    '.....kKKk..kKKk.....',
+    '.....kKKk..kKKk.....',
+    '....kMMKk..kMMKk....',
+    '....kkkkk..kkkkk....',
+    '..xxxxxxxxxxxxxxxx..',
+    '....................',
+  ],
+
+  // 火药童子:稚童高举赤色爆竹,引信火星头顶炸开
+  bomber: [
+    '......hh......',
+    '......kk......',
+    '.....kRRk.....',
+    '.....kOOk.....',
+    '.....kRRk.....',
+    '....kkRRkk....',
+    '....kkkkkk....',
+    '....kppppk....',
+    '....kkppkk....',
+    '.....kKKk.....',
+    '.....kKKk.....',
+    '....kKk.kKk...',
+    '....kKk.kKk...',
+    '....kk...kk...',
+  ],
+
+  // 铁甲龟:玄墨甲壳青铜纹,铁头横出,四足踏地
   turtle: [
     '..................',
-    '....kkkkkkkk......',
-    '..kkBBBBBBBBkk....',
-    '.kBBtBBBBBBtBBk...',
-    '.kBtBBttBBBBtBk...',
-    'kBBtBttttBBBtBBk..',
-    'kBBBtttBBttBBBkkk.',
-    'kBtBBBttttBBBkttk.',
-    'kBBtBBBttBBBkttStk',
-    'kBBBBBBBBBBBktKStk',
-    '.kBBtBBBBBBBkkkkkk',
-    '.kBtBBttBBtBBk....',
-    '..kkBBBBBBBkk.....',
-    '...kkkkkkkkk......',
-    '...kBBk..kBBk.....',
-    '...kAAk..kAAk.....',
+    '..................',
+    '.....kkkkkk.......',
+    '...kkMMMMMMkk.....',
+    '..kMmmMMMMMMMk....',
+    '.kMMmkkMMkkMMk....',
+    '.kMMkkMMkkMMkkttt.',
+    '.kMmMkkMMkkMMktkt.',
+    '.kMMkkMMkkMMkkttt.',
+    '.kMMkkMMkkMMkkttk.',
+    '..kMMkkMMkkMMktt..',
+    '...kkMMMMMMkkk....',
+    '....kkkkkkkkkk....',
+    '...kMMk..kMMk.....',
+    '...kmmk..kmmk.....',
     '...kkk....kkk.....',
+    '...xx......xx.....',
     '..................',
   ],
 
-  // 鬼火:飘忽焰形 + 拖尾
+  // 青灯鬼火:青焰灯笼,纸骨透光,预烘焙青晕
   wisp: [
-    '....kk......',
-    '...kcck.....',
-    '..kcccck....',
-    '.kcwcccck...',
-    '.kcwkccck...',
-    '.kccccccck..',
-    '.kckcccck...',
-    '.kuccccck...',
-    '..kuccck....',
-    '...kck.k....',
-    '....k..k....',
+    '....uu......',
+    '...uuuuu....',
+    '.bbCcccCbb..',
+    'bCccwcwccCb.',
+    'bCcwwuwwcCb.',
+    'bCccwcwccCb.',
+    '.bbCcccCbb..',
+    '...uuuuu....',
+    '...buuub....',
+    '....bAb.....',
+    '............',
     '............',
   ],
 
-  // 死神(精英):斗篷 + 竖镰(右手持柄)
+  // 黑无常:白高帽朱砂符,惨白长舌,浓墨袍
   reaper: [
-    '..........kkkk.kkkk.',
-    '........kVVVVVkDDDDk',
-    '........kVkkkkVDDDDD',
-    '........kVkccckVkNN.',
-    '........kVkkkkVk.NN.',
-    '.......kVVkkkkVV.NN.',
-    '......kVVVVVVVVV.NN.',
-    '......kVPVVVVVVV.NN.',
-    '.....kVVPPVVVVVV.NN.',
-    '.....kVPPPVVVVVVDNN.',
-    '....kVVPPVVVVVVV.NN.',
-    '....kVVVVVVVVVVV.NN.',
-    '...kVVVVVVVVVVVV.NN.',
-    '...kVPVVVVVVVVVV.NN.',
-    '...kVVVVVPVVVVVV.NN.',
-    '...kVVVVVVVVVVVV.NN.',
-    '...kVVVVVVVVVVVV.NN.',
-    '...kVkVVkVVkVVkV.NN.',
-    '....kk.kkk.kk.kk.NN.',
-    '....kk.kkk.kk.kk....',
+    '........kkkkkk......',
+    '.......kwwwwwwk.....',
+    '.......kwrwrrwk.....',
+    '.......kwwwwwwk.....',
+    '.......kwwwwwwk.....',
+    '.....kkkwwwwwwkkk...',
+    '...kkwwwwwwwwwwwwkk.',
+    '....kwwkwwwwkwwk....',
+    '....kwwwwwwwwwwk....',
+    '.....kkwwkkwwkk.....',
+    '....kKKkkRRkkKKk....',
+    '...kKKKKkRRkKKKKk...',
+    '...kKKKKkRRkKKKKk...',
+    '...kKKKKkrrkKKKKk...',
+    '..kKKKKKKkkKKKKKKk..',
+    '..kKKKKKKKKKKKKKKk..',
+    '..kKKKKKKKKKKKKKKk..',
+    '..kKkKKKkKKKkKKKkk..',
+    '..kk.kkk.kk.kk......',
+    '....xx.xx.xx.xx.....',
   ],
 
   // ---------------- Boss(程序化绘制,见顶部 BOSS_GOLEM / BOSS_OVERLORD) ----------------
 
-  // 石头守卫 40×40:巨型岩人,苔藓覆盖,胸口熔核
+  // 石像守卫 40×40:灰石傀儡,斧凿裂纹,胸口青焰石核
   boss_golem: BOSS_GOLEM,
 
-  // 深渊领主 56×56:双骨角 + 熔心符文 + 撕裂披风
+  // 无常尊者 56×56:黑袍高帽魔头,朱砂点睛
   boss_overlord: BOSS_OVERLORD,
 
   // ---------------- 武器弹体 / 表现(默认朝右) ----------------
 
-  // 飞刀
+  // 剑气:青焰柳叶,锋刃透光,预烘焙青晕
   w_knife: [
     '..........',
-    '......kkk.',
-    '.....kDDk.',
-    '.kkkDDDDwk',
-    '.kykDDDDk.',
-    '.kkkDDDk..',
-    '.....kkk..',
-    '..........',
+    '......cc..',
+    '.....cCCb.',
+    '..ccCcCCb.',
+    '.cCcwwCCb.',
+    '..ccCcCCb.',
+    '......cCb.',
+    '.......cb.',
     '..........',
     '..........',
   ],
 
-  // 魔弹(青色飞矢)
+  // 符弹:墨玉弹心 + 符纸飘尾
   w_bolt: [
     '........',
+    '....kkk.',
+    '...kKKKk',
+    '.rpkkCKk',
+    '.rpkkKKk',
+    '...kKKk.',
+    '....kKk.',
     '.....kk.',
-    '..kkcck.',
-    '.kcccwk.',
-    '.kccwwk.',
-    '..kkcck.',
-    '.....kk.',
-    '........',
   ],
 
-  // 长弓箭
+  // 墨竹箭:竹节箭杆,竹叶翎羽,白锋菱镞
   w_arrow: [
     '............',
-    '........kk..',
-    'kk....kkDDk.',
-    'kFkknnDDDDDk',
-    'kFFknnDDDDDk',
-    'kk....kkDDk.',
-    '........kk..',
+    'vv......kk..',
+    '.vv....kwwk.',
+    '..vvvvvkwwkk',
+    '..VVVVVkwwkk',
+    '.vv....kwwk.',
+    'vv......kk..',
     '............',
   ],
 
-  // 奥术法球
+  // 墨渊珠:淡墨圆珠,上亮下沉,晕染自然
   w_orb: [
     '...kkkk...',
-    '..kcccck..',
-    '.kccuuuck.',
-    '.kcwuuuck.',
-    'kcuuuuuuck',
-    'kuuuuuubck',
-    '.kuuuubuk.',
-    '..kuubuk..',
-    '...kkkk...',
+    '..kmmmmk..',
+    '.kmPmmmmk.',
+    '.kmPmmMMk.',
+    'kmmmmmmMMk',
+    'kmmmmmMMKk',
+    '.kmmmMMKk.',
+    '.kmMMKKk..',
+    '..kkkkk...',
     '..........',
   ],
 
-  // 火球(带旋尾)
+  // 焚天珠:赤红火珠,焰尾拖曳,预烘焙朱砂晕
   w_fireball: [
     '............',
-    '..kk........',
-    '.kRRkk......',
-    '.kRORkk.....',
-    '..kRORRkk...',
-    '..kROyyRRkk.',
-    '..kROyyOORk.',
-    '..kROOOORk..',
-    '..kRROORk...',
-    '...kRRRk....',
-    '....kkk.....',
+    '....hh......',
+    '...hRRh.....',
+    '..hRORRh....',
+    '..ROOORRk...',
+    '.kROOORRk...',
+    '.kRROORRk...',
+    '..kRRRRk....',
+    '..kqRRqk....',
+    '...kqqk.....',
+    '....qq......',
     '............',
   ],
 
-  // 回旋镖
+  // 回风刃:弯月回刃,浓墨刃身,淡墨内锋
   w_boomerang: [
-    '............',
-    '.kk......kk.',
-    'kNNk....kNNk',
-    'kNyNk..kNyNk',
-    '.kNyNkkNyNk.',
-    '..kNyNNyNk..',
-    '...kNyNyNk..',
-    '....kNyyNk..',
-    '.....kNNk...',
-    '......kk....',
-    '............',
-    '............',
+    '....kkkk....',
+    '..kMMMMMMk..',
+    '.kMMMMMMMMk.',
+    'kkMMm.kkkk..',
+    'kkMm........',
+    'kkM.........',
+    'kkM.........',
+    'kkMm........',
+    'kkMMm.kkkk..',
+    '.kMMMMMMMMk.',
+    '..kMMMMMMk..',
+    '....kkkk....',
   ],
 
-  // 圣水瓶
+  // 墨滴葫芦:束腰小葫芦,腹纳浓墨,纸光点釉
   w_flask: [
-    '...kkkk...',
-    '...kNNk...',
-    '...kwwk...',
-    '..kwwwwk..',
-    '.kwwuuwwk.',
-    '.kwuuyuwk.',
-    'kwuuyyyuwk',
-    'kwuuyyyuwk',
-    '.kuuyyyuk.',
+    '...kkk....',
+    '...kNk....',
+    '...knk....',
+    '..kPnnk...',
+    '...knNk...',
+    '..knnnnk..',
+    '.knnKKnnk.',
+    '.knKKKnnk.',
+    '.knKKKKnk.',
     '..kkkkkk..',
   ],
 
-  // 圣盾
+  // 墨圈:淡墨护环,浓墨勾边
   w_shield: [
-    '....kkkkkkkk....',
-    '..kkCCDDDDCCkk..',
-    '.kCDDCAAAACDDCk.',
-    '.kDCAAkyykAACDk.',
-    'kDCAkyyyyyykACDk',
-    'kCAkyyOAyyOykACk',
-    'kCAkyOOyyOOykACk',
-    'kCAkyyOAyyOykACk',
-    'kDCAkyyyyyykACDk',
-    '.kDCAAkyykAACDk.',
-    '.kCDDCAAAACDDCk.',
-    '..kkCCDDDDCCkk..',
-    '....kkkkkkkk....',
     '................',
-    '................',
+    '.....kkkkkk.....',
+    '...kkMMMMMMkk...',
+    '..kkMMkkkkMMkk..',
+    '.kkMMk....kMMkk.',
+    '.kMMk......kMMk.',
+    'kkMMk......kMMkk',
+    'kkMk........kMkk',
+    'kkMk........kMkk',
+    'kkMMk......kMMkk',
+    '.kMMk......kMMk.',
+    '.kkMMk....kMMkk.',
+    '..kkMMkkkkMMkk..',
+    '...kkMMMMMMkk...',
+    '.....kkkkkk.....',
     '................',
   ],
 
-  // 竖向闪电 8×28
+  // 五雷符:黄纸朱砂符,青焰雷纹纵贯
   lightning_v: [
-    '...ww...',
-    '..cwwc..',
-    '..cwwc..',
-    '.cwwwc..',
-    '.cwwwc..',
-    '..cwwc.y',
-    '..cwwc.y',
-    '.cwwwc.y',
-    '.cwwwc..',
-    '..cwwc..',
-    '...ww...',
-    '...ww...',
-    '..cwwc..',
-    '.cwwwc..',
-    '.cwwwc..',
-    '..cwwc..',
-    '..cwwc.y',
-    '...ww.y.',
-    '..cwwc..',
-    '.cwwwc..',
-    '.cwwwc..',
-    '..cwwc..',
-    '..cwwc..',
-    '...ww...',
-    '...ww...',
-    '...ww...',
-    '...ww...',
-    '........',
+    '.pppppp.',
+    '.pRrrRp.',
+    '.pppppp.',
+    '.ppCwpp.',
+    '.ppCwpp.',
+    '.ppCwpp.',
+    '.ppCwpp.',
+    '.pCwpp..',
+    '.pCwpp..',
+    '.pCwpp..',
+    '.pCwpp..',
+    '.ppCwpp.',
+    '.ppCwpp.',
+    '.ppCwpp.',
+    '.ppCwpp.',
+    '.pCwpp..',
+    '.pCwpp..',
+    '.pCwpp..',
+    '.pCwpp..',
+    '.ppCwpp.',
+    '.ppCwpp.',
+    '.ppCwpp.',
+    '.ppCwpp.',
+    '.pCwpp..',
+    '.pCwpp..',
+    '.pCwpp..',
+    '.pCwpp..',
+    '.pppppp.',
   ],
 
-  // 圣域光圈 48×48(半透明同心环,alpha 由绘制方再调)
+  // 墨染光域 48×48(半透明同心墨环,alpha 由绘制方再调)
   zone_holy: ZONE_HOLY,
 
   // ---------------- 拾取物 ----------------
 
+  // 青焰火种·微(青)
   gem_b: [
-    '..kkkk..',
-    '.kwcuuk.',
-    'kwcuuuuk',
-    'kcuuuuuk',
-    '.kuuuuuk',
-    '.kuuuuk.',
-    '..kuuk..',
-    '...kk...',
-  ],
-  gem_g: [
-    '..kkkk..',
-    '.kwvGGk.',
-    'kwvGGGGk',
-    'kvGGGGGk',
-    '.kGGGGGk',
-    '.kGGGGk.',
-    '..kGGk..',
-    '...kk...',
-  ],
-  gem_r: [
-    '..kkkk..',
-    '.kwqRRk.',
-    'kwqRRRRk',
-    'kqRRRRRk',
-    '.kRRRRRk',
-    '.kRRRRk.',
-    '..kRRk..',
-    '...kk...',
-  ],
-  coin: [
-    '..kkkk..',
-    '.kyyyyk.',
-    'kywyyyok',
-    'kywyyyok',
-    'kyyyyook',
-    '.kyyook.',
-    '..kkkk..',
+    '...cc...',
+    '..bCc...',
+    '.bcCwc..',
+    '.cCwCCb.',
+    '.bCCCub.',
+    '..uCCu..',
+    '...uu...',
     '........',
   ],
+  // 青焰火种·小(玉青)
+  gem_g: [
+    '...vv...',
+    '..bVv...',
+    '.bvVwv..',
+    '.vVwJJb.',
+    '.bJJJvb.',
+    '..JJJv..',
+    '...JJ...',
+    '........',
+  ],
+  // 青焰火种·大(朱砂)
+  gem_r: [
+    '...RR...',
+    '..bRh...',
+    '.bhRwO..',
+    '.hRwOOb.',
+    '.bOOOrb.',
+    '..rrrq..',
+    '...rq...',
+    '........',
+  ],
+  // 方孔铜钱
+  coin: [
+    '.kkkkkk.',
+    'kOooooOk',
+    'kOokkoOk',
+    'kookkook',
+    'kNokkoNk',
+    'kNokkoNk',
+    'kNooooNk',
+    '.kkkkkk.',
+  ],
+  // 白面馒头
   meat: [
     '............',
     '...kkkk.....',
-    '..kRRRRk....',
-    '.kRqqRRRk...',
-    '.kRqRRRRRkk.',
-    '.kRRRRRRRFFk',
-    '.kRRRRRRRFFk',
-    '..kRRRRRk...',
+    '..kwwwwk....',
+    '.kwPPwwwwk..',
+    '.kwPwwwwk...',
+    '.kwwwwwwek..',
+    '.kwwwwwwwk..',
+    '.kwwwwwwk...',
+    '..kwwwwk....',
     '...kkkkk....',
-    '............',
-    '............',
+    '...xxxx.....',
     '............',
   ],
+  // 摄魂铃:铜铃朱砂符
   magnet: [
-    '............',
-    '...kkkkkk...',
-    '..kRRRRRRk..',
-    '..kRRkkkRRk.',
-    '..kRRk.kRRk.',
-    '..kRRk.kRRk.',
-    '..kRRk.kRRk.',
-    '..kwwk.kwwk.',
-    '..kwwk.kwwk.',
-    '...kk...kk..',
-    '............',
+    '.....kk.....',
+    '....kOOk....',
+    '...kOOOOk...',
+    '...kOOOOk...',
+    '..kOOOOOOk..',
+    '..kOyOOyOk..',
+    '..kOOOOOOk..',
+    '..kkkkkkkk..',
+    '...kOOOOk...',
+    '....krrk....',
+    '....krrk....',
     '............',
   ],
+  // 墨木宝匣:乌木包铜角,金锁衔环
   chest: [
     '................',
-    '...kkkkkkkkkk...',
-    '..kOOOOOOOOOOk..',
-    '.kOnnnnnnnnnnOk.',
-    '.knnnnnnnnnnnnk.',
-    '.knnNnnnnnnnNnk.',
+    '..kkkkkkkkkkkk..',
+    '.kNNNNNNNNNNNNk.',
+    '.kNnnnnnnnnnnNk.',
+    '.kNnnnnnnnnnnNk.',
     '.kkkkkkkkkkkkkk.',
     '.kNNNNNNNNNNNNk.',
-    '.kNnnnnnNNnnnNk.',
-    '.kNnnnyOOynnnNk.',
-    '.kNnnnyOOynnnNk.',
-    '.kNnnnnnNNnnnNk.',
-    '.kNNNNNNNNNNNNk.',
+    '.kNnnnOOOOnnnNk.',
+    '.kNnnnOOnnnnnNk.',
+    '.kNnnnOOnnnnnNk.',
+    '.kNnnnnnnnnnnNk.',
+    '.kNnnnnnnnnnnNk.',
     '.kkkkkkkkkkkkkk.',
     '.xxxxxxxxxxxxxx.',
     '................',
+    '................',
   ],
 
-  // ---------------- 地面图块 / 装饰 ----------------
+  // ---------------- 地面图块 / 装饰(宣纸底,几乎无对比,纸纹细腻) ----------------
 
   tile_grass_0: [
-    'EEEEEEEEEEEEEEEE',
-    'EEgEEEEEEEEgEEEE',
-    'EEEEEEGEEEEEEEEE',
-    'EEEEEgEEEEEgEEEE',
-    'EGEEEEEEEEEEEEGE',
-    'EEEEEEEEgEEEEEEE',
-    'EEEgEEEEEEEEEEgE',
-    'EEEEEEEEEEGEEEEE',
-    'EGEEEEgEEEEEEEEE',
-    'EEEEEEEEEEEEgEEE',
-    'EEEGEEEEEEEEEEEE',
-    'EEEEEEEEEgEEEGEE',
-    'gEEEEgEEEEEEEEEE',
-    'EEEEEEEEEGEEgEEE',
-    'EEgEEEEEEEEEEEEE',
-    'EEEEEEEEEEEEEEEE',
+    'pppppppppppppppp',
+    'pppPpppppppppppp',
+    'pppppppppppppppp',
+    'pppppppPpppppppp',
+    'pppppppppppepppp',
+    'pppppppppppppppp',
+    'ppPppppppppppppp',
+    'pppppppppppppppp',
+    'pppppppppPpppppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
+    'ppeppppppppppppp',
+    'pppppppppppppPpp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
   ],
   tile_grass_1: [
-    'EEEEEEEEEEEEEEEE',
-    'EEEEgEEEEEEEGEEE',
-    'EGEEEEEEEEgEEEEE',
-    'EEEEEEEEEEEEEEEE',
-    'EEEEEEgEEEEEEEEG',
-    'EEgEEEEEEEEgEEEE',
-    'EEEEEEEGEEEEEEEE',
-    'EEEEgEEEEEEEEgEE',
-    'EEEEEEEEEEEEEEEE',
-    'EGEEEEgEEEEEEEEE',
-    'EEEEEEEEEEEGEEEE',
-    'EEEEgEEEEEEEEEEE',
-    'EEEEEEEEgEEgEEEE',
-    'EEEGEEEEEEEEEGEE',
-    'EEEEEEEEgEEEEEEE',
-    'EEEEEEEEEEEEEEEE',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
+    'ppPppppppppppppp',
+    'pppppppppppppppp',
+    'ppppppppppppppep',
+    'pppppppPpppppppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
+    'ppppppppppppPppp',
+    'pppppppppppppppp',
+    'pepppppppppppppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
+    'pppppPpppppppppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
   ],
   tile_grass_2: [
-    'EEEEEEEEEEEEEEEE',
-    'EEEEEEEEgEEEEEEE',
-    'EEGEEEEEEEEEEGEE',
-    'EEEEEEgEEEEEEEEE',
-    'EEEgEEEEEEEEEEEE',
-    'EEEEEEEEEGEEEEEE',
-    'EgEEEEgEEEEEEEEG',
-    'EEEEEEEEEEEgEEEE',
-    'EEEGEEEEEEEEEEEE',
-    'EEEEEEEGEEEEEEEE',
-    'EgEEEEEEEEgEEEEE',
-    'EEEEEEEEEEEEEEEE',
-    'EEEEgEEEGEEEEEEE',
-    'EEEEEEEEEEEEgEEE',
-    'EGEEEEgEEEEEEEEE',
-    'EEEEEEEEEEEEEEEE',
+    'pppppppppppppppp',
+    'pppppppepppppppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
+    'ppppppppppppPppp',
+    'ppPppppppppppppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
+    'pppppPpppppppppp',
+    'pppppppppppepppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
+    'pppppppppppppppp',
   ],
   tile_dirt: [
-    'NNNNNNNNNNNNNNNN',
-    'NNnNNNNNNNNNnNNN',
-    'NNNNNNNdNNNNNNNN',
-    'NnNNNNNNNNNnNNNN',
-    'NNNNNnNNNNNNNNNN',
-    'NNdNNNNNNnNNNNNN',
-    'NNNNNNNNNNNNNNNN',
-    'NnNNNNNNNNNNNdNN',
-    'NNNNNnNNNNNNNNNN',
-    'NNNNNNNNNNnNNNNN',
-    'NNdNNNNNNNNNNNNN',
-    'NNNNNNNNNnNNNnNN',
-    'NnNNNNNNNNNNNNNN',
-    'NNNNNnNNdNNNNNNN',
-    'NNNNNNNNNNNNNnNN',
-    'NNNNNNNNNNNNNNNN',
+    'EEEEEEEEEEEEEEEE',
+    'EEEDEEEEEEEEEEEE',
+    'EEEEEEEEEDEEEEEE',
+    'EEEEEEEEEEEEEEEE',
+    'EEDEEEEEEEEEEEEE',
+    'EEEEEEEEEEEEDEEE',
+    'EEEEEDEEEEEEEEEE',
+    'EEEEEEEEEEEEEEEE',
+    'EEEEEEEEEEEEEEEE',
+    'EDEEEEEEEDEEEEEE',
+    'EEEEEEEEEEEEEEEE',
+    'EEEEEEDEEEEEEEEE',
+    'EEEEEEEEEEEEEEEE',
+    'EEEEEDDEEEEEDEEE',
+    'EEEEEEEEEEDEEEEE',
+    'EEEEEEEEEEEEEEEE',
   ],
 
+  // 山石:淡墨皴笔,枯润相生
   dec_rock: [
     '................',
     '................',
     '................',
     '................',
+    '......MMMM......',
+    '.....kMmgmM.....',
+    '....kMmgmmgM....',
+    '...kMmgmmmgmM...',
+    '...kMmmgmmmmM...',
+    '..kMmgmmmmgmmM..',
+    '..kMmmmmmmgmmM..',
+    '.kMmgmmmmmmmgmM.',
+    '.MMMMMMMMMMMMMM.',
+    '..xx........xx..',
     '................',
-    '......kkkk......',
-    '.....kBBBBk.....',
-    '....kBCDDBBk....',
-    '...kBBDDDDBBk...',
-    '...kBBDDDBBBk...',
-    '..kBBBBBBBBBBk..',
-    '..kBABBBBABBBk..',
-    '..kBBBBBBBBBBk..',
-    '..kkkkkkkkkkkk..',
-    '...xx......xx...',
     '................',
   ],
+  // 梅点:朱砂梅瓣,枯枝横斜
   dec_flower: [
     '................',
+    '.............s..',
+    '............s...',
+    '...........s....',
+    '...RR.....s.....',
+    '..RORs...s......',
+    '...RR.....s.....',
+    '..........s.....',
+    '.........s......',
+    '....s..RRR......',
+    '.......ROR......',
+    '........RR......',
+    '..R.............',
     '................',
-    '......kk........',
-    '.....kyyk.......',
-    '....kyOOyk......',
-    '.....kyyk.......',
-    '......kv........',
-    '...k...v...kk...',
-    '..kcck.v.kyOyk..',
-    '...kuu.v.kuyuk..',
-    '....v.GvG..v....',
-    '.....GvvG..v....',
-    '......vGv.Gv....',
-    '.......v.Gv.....',
-    '.......v..v.....',
+    '................',
     '................',
   ],
+  // 枯枝:老干如铁,淡墨疏影
   dec_bones: [
-    '................',
-    '................',
-    '................',
-    '................',
-    '....kkkk........',
-    '...kDDDDk.......',
-    '...kDkDkD.......',
-    '...kDDDDk..kkk..',
-    '....kkkk..kFFFk.',
-    '...kDDDDkkkFFk..',
-    '..kDDDDDDkFFkk..',
-    '...kkkkkkkk.....',
-    '................',
+    '.......k........',
+    '.......s........',
+    '....k..s........',
+    '....ks.s........',
+    '.....kss....k...',
+    '......ss...k....',
+    '......ss..ks....',
+    '.......ssks.....',
+    '.......kss......',
+    '........ss......',
+    '........ss......',
+    '.......kss......',
+    '......ss.kk.....',
     '................',
     '................',
     '................',
   ],
+  // 竹丛:淡墨两竿,竹叶疏斜
   dec_stump: [
-    '................',
-    '................',
-    '................',
-    '....kkkkkkkk....',
-    '...kffnnnnffk...',
-    '..kfnNnnnnNnfk..',
-    '..kfnNnffnNnfk..',
-    '..kfnNnnnnNnfk..',
-    '..kNnnnnnnnnNk..',
-    '..kNNnnnnnnNNk..',
-    '..kNNNNNNNNNNk..',
-    '..kNkNNNNNNkNk..',
-    '..kNkkNNNNkkNk..',
-    '..kkkkkkkkkkkk..',
-    '....xxxxxxx.....',
+    '..v.....v.......',
+    '.vv....vvv......',
+    '..k.....k.......',
+    '..k..v..k.......',
+    '..k.....k....v..',
+    '..V.....V.......',
+    '.vk.....k..vv...',
+    '..k.v...k.......',
+    '..k.....k..v....',
+    '..V.....V.......',
+    '.vk.....kv......',
+    '..k.....k.......',
+    '..k.....k.......',
+    '..V.....V.......',
+    '.xx.....xx......',
     '................',
   ],
 
-  // ---------------- 被动图标(16×16) ----------------
+  // ---------------- 被动图标(16×16,表意清晰) ----------------
 
-  // 力量:利剑
+  // 剑谱:乌木函册,白锋剑纹,朱砂小印
   p_might: [
-    '..........kk....',
-    '.........kDDk...',
-    '........kDwwk...',
-    '.......kDwwk....',
-    '......kDwwk.....',
-    '.....kDwwk......',
-    '....kDwwk.......',
-    '.kk.kDwk........',
-    'kyykkDwk........',
-    '.kkykkk.........',
-    '..kykNk.........',
-    '...kyNk.........',
-    '....kk..........',
-    '....kNk.........',
-    '.....kk.........',
+    '................',
+    '................',
+    '...kkkkkkkkkk...',
+    '..kNNNNNNNNNNk..',
+    '..kNwwwwwwwwNk..',
+    '..kNwkkkkkkwNk..',
+    '..kNwkkwwkkwNk..',
+    '..kNwkkwwkkwNk..',
+    '..kNwkkkkkkwNk..',
+    '..kNwwwwrwwwNk..',
+    '..kNPPPPPPPPNk..',
+    '..kkkkkkkkkkkk..',
+    '..xxxxxxxxxx....',
+    '................',
+    '................',
     '................',
   ],
 
-  // 冷却:沙漏
+  // 沙漏:木框金沙,光阴滴落
   p_cd: [
-    '.kkkkkkkkkkkkkk.',
-    '..kFFFFFFFFFFFFk',
-    '...kDDDDDDDDk...',
-    '....kDDyyDDk....',
-    '.....kDyyDk.....',
-    '......kyyk......',
-    '.......kk.......',
-    '.......kk.......',
-    '......kyyk......',
-    '.....kyyyyk.....',
-    '....kyyyyyyk....',
-    '...kDDyyyyDDk...',
-    '...kDDDDDDDDk...',
-    '..kFFFFFFFFFFFFk',
-    '.kkkkkkkkkkkkkk.',
+    '................',
+    '..kkkkkkkkkk....',
+    '..kwwwwwwwwk....',
+    '..kwOOOOOOwk....',
+    '...kwkOOOkwk....',
+    '....kwkOkwk.....',
+    '.....kwkwk......',
+    '......kwk.......',
+    '......kwk.......',
+    '.....kwkwk......',
+    '....kwOOOwk.....',
+    '...kwkOOOOkwk...',
+    '..kwkkkkkkkwk...',
+    '..kwwwwwwwwwk...',
+    '..kkkkkkkkkkk...',
     '................',
   ],
 
-  // 移速:疾风之靴
+  // 草鞋:麻绳编底,履步生风
   p_speed: [
     '................',
     '................',
-    '........kk......',
-    '...kkkkkNNk.....',
-    '..kwwwwkNNNk....',
-    '.kwwwwwkNNNNk...',
-    'kwwwwwkNNNNNk...',
-    'kkwwkkNNNNNNk...',
-    '.kkkNNNNNNNk....',
-    '...kNNNNNNk.....',
-    '...kNNNNNk......',
-    '..kNkkkkkk......',
-    '..kkkoookk......',
-    '..kooooooook....',
+    '................',
+    '....kOk.kOk.....',
+    '.....kOkkOk.....',
+    '.....kkOOkk.....',
     '..kkkkkkkkkk....',
+    '..kononononk....',
+    '..kOnOnOnOnk....',
+    '..kononononk....',
+    '..kkkkkkkkkk....',
+    '...xxxxxxxx.....',
+    '................',
+    '................',
+    '................',
     '................',
   ],
 
-  // 生命:红心
+  // 气血丹:朱砂药丹,金光温润
   p_hp: [
     '................',
     '................',
-    '...kkkk..kkkk...',
-    '..kRRRRkkRRRRk..',
-    '.kRqqRRRRRRRRRk.',
-    '.kRqRRRRRRRRRRk.',
-    'kRqRRRRRRRRRRRRk',
-    'kRRRRRRRRRRRRRRk',
-    'kRRRRRRRRRRRRRRk',
-    '.kRRRRRRRRRRRRk.',
-    '..kRRRRRRRRRRk..',
-    '...kRRRRRRRRk...',
-    '....kRRRRRRk....',
-    '.....kRRRRk.....',
-    '......kRRk......',
-    '.......kk.......',
+    '................',
+    '.....hhhh.......',
+    '....hRRRRh......',
+    '...hRROORRh.....',
+    '...hROwOORh.....',
+    '...hROOORRh.....',
+    '....hRRRRh......',
+    '.....hhhh.......',
+    '.....xxxx.......',
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
   ],
 
-  // 磁力:磁铁
+  // 摄魂铃:铜铃摇动,朱砂符咒
   p_magnet: [
     '................',
-    '...kkkkkkkkkk...',
-    '..kRRRRRRRRRRk..',
-    '..kRRRkkkkRRRk..',
-    '..kRRk....kRRk..',
-    '..kRRk....kRRk..',
-    '..kRRk....kRRk..',
-    '..kRRk....kRRk..',
-    '..kwwk....kwwk..',
-    '..kwwk....kwwk..',
-    '..kwwk....kwwk..',
-    '..kkkk....kkkk..',
     '................',
-    '................',
+    '.....kkk........',
+    '....kkOkk.......',
+    '....kOOOk.......',
+    '...kOOOOOk......',
+    '..kOOOOOOOk.....',
+    '..kOyOOOyOk.....',
+    '..kOOOOOOOk.....',
+    '..kkkkkkkkk.....',
+    '...kOOOOOk......',
+    '....krrrk.......',
+    '....krrrk.......',
+    '.....xxx........',
     '................',
     '................',
   ],
 
-  // 经验:学士帽
+  // 书卷:展卷诵读,墨字斑驳
   p_xp: [
     '................',
-    '.......kk.......',
-    '.....kkVVkk.....',
-    '...kkVVVVVVkk...',
-    '.kkVVVVVVVVVVky.',
-    'kVVVVVVVVVVVVVVk',
-    '.kkVVVVVVVVVVky.',
-    '...kkkkkkkkkk.yk',
-    '.....kVVVVk...y.',
-    '.....kVVVVk.....',
-    '.....kVVVVk.....',
-    '.....kVVVVk.....',
-    '.....kkkkkk.....',
+    '................',
+    '..kN........Nk..',
+    '..kNppppppppNk..',
+    '..kNpPPpPPppNk..',
+    '..kNppppppppNk..',
+    '..kNpPPpPPppNk..',
+    '..kNppppppppNk..',
+    '..kNpPPpPpppNk..',
+    '..kNppppppppNk..',
+    '..kN........Nk..',
+    '..kkk......kkk..',
+    '...xxxxxxxx.....',
     '................',
     '................',
     '................',
   ],
 
-  // 金币:钱袋
+  // 钱袋:束口布囊,铜钱溢光
   p_gold: [
     '................',
-    '.......kk.......',
-    '......kNNk......',
-    '.....knnnk......',
-    '....kknnnkk.....',
-    '...knnnnnnnk....',
-    '..knnnnnnnnnk...',
-    '.knnnnnnnnnnnk..',
-    '.knnnnOOnnnnnk..',
-    'knnnnOyyOnnnnnk.',
-    'knnnnOOnnnnnnnk.',
-    'knnnnnnnnnnnnnk.',
-    '.knnnnnnnnnnnk..',
-    '..knnnnnnnnnk...',
-    '...kkkkkkkkk....',
+    '................',
+    '......kk........',
+    '.....kNNk.......',
+    '....kNnnNk......',
+    '...kNnnnnNk.....',
+    '..kNnnnnnnNk....',
+    '..kNnnOOnnNk....',
+    '..kNnnOOOnNk....',
+    '..kNnnnOOnNk....',
+    '..kNnnnnnnNk....',
+    '...kNnnnnNk.....',
+    '....kkkkkk......',
+    '.....xxxx.......',
+    '................',
     '................',
   ],
 
-  // 护甲:胸甲
+  // 铁布衫:墨色短褂,铜扣护心
   p_armor: [
     '................',
-    '..kkkk....kkkk..',
-    '.kCCCCkkkkCCCCk.',
-    '.kCCCkkAAkkCCCk.',
-    'kCCCCkAAAAkCCCCk',
-    'kCCCkAAAAAAkCCCk',
-    'kCCCkADDDDAkCCCk',
-    'kCCCkADDDDAkCCCk',
-    'kCCCkAAAAAAkCCCk',
-    'kCCCkAADDDAkCCCk',
-    '.kCCkAAAAAAkCCk.',
-    '.kCCkkAAAAkkCCk.',
-    '..kkkAAAAAAkkk..',
+    '.kkkk....kkkk...',
+    '.kMMkkkkkkkkMMk.',
+    '.kMMkKKKKKKkMMk.',
+    '.kMMkKMMMMKkMMk.',
+    '.kMMkKMOOMKkMMk.',
+    '.kMMkKMOOMKkMMk.',
+    '.kMMkKKKKKKkMMk.',
+    '.kMMkKKKKKKkMMk.',
+    '.kMkkKKKKKKkkMk.',
+    '.kkkkkkkkkkkkkk.',
+    '...xxxxx.xxxx...',
+    '................',
+    '................',
+    '................',
+    '................',
+  ],
+
+  // 天眼:竖目观世,朱砂瞳仁,慧光四射
+  p_crit: [
+    '................',
+    '.......k........',
+    '....k..k..k.....',
+    '.....kkkkk......',
+    '...kkwwwwwkk....',
+    '..kwwwwwwwwk....',
+    '.kwwwrrrrwwwwk..',
+    '.kwwwrkkrrwwwk..',
+    '..kwwwrrwwwk....',
+    '...kkwwwwkk.....',
+    '.....kkkkk......',
+    '....k..k..k.....',
+    '.......k........',
+    '................',
+    '................',
+    '................',
+  ],
+
+  // ---------------- 进化超武(明显更华丽,青焰/朱砂/金辉点睛) ----------------
+
+  // 万剑归宗:中锋悬剑,四方剑气环绕
+  w_knife_evo: [
+    '.......kwk......',
+    '.......kwk......',
+    '..c....kwk....c.',
+    '..Cc...kwk...Cc.',
+    '...Cc..kwk..Cc..',
+    '....Cc.kwk.Cc...',
+    '.....CckwkCC....',
+    '.....ooOoooo....',
+    '......kNk.......',
+    '......kNk.......',
+    '......kkk.......',
+    '..C..........C..',
+    '...Cc......Cc...',
+    '....Cc....Cc....',
+    '.....Cc..Cc.....',
+    '......CCCC......',
+  ],
+
+  // 风卷残云:浓墨双环漩涡,错位开口,青焰风梢
+  w_wand_evo: [
+    '.......kk.......',
+    '....kkkkkkkk....',
+    '..kkkkkkkkkkk...',
+    '..kkk......c....',
+    '.kkkk...........',
+    '.kk..MMMMMM.....',
+    '.kk.MM....MM....',
+    'kkk.MM....MM....',
+    'kkk.MM....MM....',
+    'kkk.MM....MM.kkk',
+    '.kk.....CMM..kk.',
+    '.kkk....MM.kkk..',
+    '..kk........kk..',
+    '..kkkkkkkkkkkk..',
+    '....kkkkkkkk....',
+    '.......kk.......',
+  ],
+
+  // 贯日长虹:赤金巨箭,曜日锋芒
+  w_bow_evo: [
+    '..................',
+    '............hkkkk.',
+    '.OO.......kkRRRRk.',
+    'kOOrRrrrrrRROOwRk.',
+    'kOOrRrrrrrRROOwRk.',
+    '.OO.......kkRRRRk.',
+    '............hkkkk.',
+    '..................',
+  ],
+
+  // 周天星斗:墨珠居中,四星周天巡转
+  w_orb_evo: [
+    '................',
+    '.......MM.......',
+    '......MPPM......',
+    '.......MM.......',
+    '..MM........MM..',
+    '..MMkmmmmmmkMM..',
+    '....kmPmmmmk....',
+    '....kmPmmMMk....',
+    '....kmmmmMKk....',
     '.....kkkkkk.....',
+    '..MM........MM..',
+    '.......MM.......',
+    '......MKKM......',
+    '.......MM.......',
     '................',
     '................',
+  ],
+
+  // 九天神雷:双雷符并悬,金焰缠符
+  w_lightning_evo: [
+    '..pppppppp..',
+    '..pRrrrrRp..',
+    '..pppppppp..',
+    '..ppCwpCup..',
+    '..ppcwpcup..',
+    '..ppCwpCup..',
+    '..ppcwpcup..',
+    '..ppCwpCup..',
+    '..ppCwpCup..',
+    '..pCwppCup..',
+    '..pcwppcup..',
+    '..pCwppCup..',
+    '..pcwppcup..',
+    '..pCwppCup..',
+    '..pCwppCup..',
+    '..ppCwpCup..',
+    '..ppcwpcup..',
+    '..ppCwpCup..',
+    '..ppcwpcup..',
+    '..pCwppCup..',
+    '..pcwppcup..',
+    '..pCwppCup..',
+    '..pCwppCup..',
+    '..pCwppCup..',
+    '..pCwppCup..',
+    '..pCwppCup..',
+    '..pCwppCup..',
+    '..pCwppCup..',
+    '..pCwppCup..',
+    '..pCwppCup..',
+    '..pppppppp..',
+    '....orOo....',
+  ],
+
+  // 焚天煮海:赤焰腾空,朱砂晕染
+  w_fireball_evo: [
+    '......hh........',
+    '.....hRRh.......',
+    '....hROORh......',
+    '...hROOOORh.....',
+    '..hROOwOORh.....',
+    '..kROwwOORk.....',
+    '.kRROOOOORRk....',
+    '.kRROOOOORRk....',
+    '.kqRROOORRqk....',
+    '..kqqRRRRqqk....',
+    '...kqqqqqqk.....',
+    '....kkqqqkk.....',
+    '......kqk.......',
+    '.......k........',
+    '................',
+    '................',
+  ],
+
+  // 金刃轮回:金缘弯月巨刃,金晕流转
+  w_boomerang_evo: [
+    '.......jj.......',
+    '...jOOOOOOOOj...',
+    '..jOOOOOOOOOOj..',
+    '.jOOkkkkkkkkOOj.',
+    '.jOOkkkk........',
+    '.jOOkkm.........',
+    '.jOOk...........',
+    '.jOOk...........',
+    '.jOOkm..........',
+    '.jOOkkkk........',
+    '.jOOkkkkkkkkOOj.',
+    '..jOOOOOOOOOOj..',
+    '...jOOOOOOOOj...',
+    '.......jj.......',
+    '................',
+    '................',
+  ],
+
+  // 墨染乾坤:浓墨双环,如砚池漩涡(图标用)
+  w_holy_evo: W_HOLY_EVO,
+
+  // 雷动金钟:金钟镇魂,钟缘青雷
+  w_shield_evo: [
+    '.......kk.......',
+    '......kOOk......',
+    '......kOOk......',
+    '.....kOOOOk.....',
+    '....kOOOOOOk....',
+    '....kOyOOyOk....',
+    '...kOOOOOOOOk...',
+    '...kOOOOOOOOk...',
+    '..kOOOOOOOOOOk..',
+    '..kOyOOOOOyOk...',
+    '..kkkkkkkkkkkk..',
+    '..kkkOcOcOkkkk..',
+    '..kkOcOcOcOkkk..',
+    '....kkkkkkkk....',
+    '......krrk......',
+    '.......xx.......',
   ],
 
   // ---------------- 英雄头像(16×16,选人卡) ----------------
 
+  // 剑客:束发朱额带,剑眉冷目
   hero_face_knight: [
-    '......kRRk......',
-    '.....kCRRCk.....',
-    '....kCCCCCCk....',
-    '...kCCCCCCCCk...',
-    '...kCCCCCCCCk...',
-    '...kCKKDDKKCk...',
-    '...kCKKDDKKCk...',
-    '...kCCCCCCCCk...',
-    '....kCCDDCCk....',
-    '....kCCCCCCk....',
-    '.....kkkkkk.....',
-    '....kAACCAAk....',
-    '...kAACCCAACk...',
-    '..kAACCCAACCk...',
-    '.kAACCCCCCAACk..',
-    '.kkkkkkkkkkkkkk.',
+    '................',
+    '.....kkkkk......',
+    '....kKKKKKk.....',
+    '...kKKKKKKKk....',
+    '...krrrrrrrk....',
+    '...kwwwwwwwk....',
+    '...kwkwwwkwk....',
+    '...kwwwwwwwk....',
+    '...kwwkkwwk.....',
+    '....kwwwwk......',
+    '.....kkkk.......',
+    '...kKKKKKKKk....',
+    '..kKKKKKKKKKk...',
+    '.kKKKKKKKKKKKk..',
+    '.kKKKKKKKKKKKk..',
+    '.kkkkkkkkkkkkk..',
   ],
+  // 道人:墨髻白须,慈眉仙风
   hero_face_mage: [
-    '........kk......',
-    '.......kuuk.....',
-    '......kuuuuk....',
-    '.....kuuuuuuk...',
-    '....kuuuuuuuuk..',
-    '.kbbbbbbbbbbbbk.',
-    '....kSSSSSSk....',
-    '....kSKSSKSk....',
-    '....kSKSSKSk....',
-    '....kSSSSSSk....',
+    '................',
+    '.......kk.......',
+    '......kKKk......',
+    '.....kKKKKk.....',
+    '.....kKKKKk.....',
+    '....kwwwwwwk....',
+    '....kwkwwkwk....',
     '....kwwwwwwk....',
     '.....kwwwwk.....',
-    '....kwwwwwwk....',
-    '...kwwwwwwwwk...',
-    '...kwwwwwwwwk...',
-    '....kwwwwwwk....',
+    '.....kwwwwk.....',
+    '......kwwk......',
+    '......kwwk......',
+    '.....kttttk.....',
+    '....kttttttk....',
+    '...kttttttttk...',
+    '...kkkkkkkkkk...',
   ],
+  // 游侠:墨竹斗笠遮眉,目光炯炯
   hero_face_ranger: [
-    '.....kkkkkk.....',
-    '....kGGGGGGk....',
-    '...kGGGGGGGGk...',
-    '...kGGGGGGGGk...',
-    '...kGkkkkkkGk...',
-    '...kgSSSSSSgk...',
-    '...kgSKSSKSgk...',
-    '...kgSKSSKSgk...',
-    '...kgSSSSSSgk...',
-    '....kSSSSSSk....',
-    '....kgSSSSgk....',
-    '....kGGGGGGk....',
-    '...kGGGGGGGGk...',
-    '..kGGGGGGGGGGk..',
-    '.kGGGGGGGGGGGGk.',
-    '.kkkkkkkkkkkkkk.',
+    '................',
+    '.....kkkkk......',
+    '...kkMMMMMkk....',
+    '.kkMMMMMMMMMkk..',
+    'kkMMMMMMMMMMMkk.',
+    '...kwwwwwwwk....',
+    '...kwkwwwkwk....',
+    '...kwwwwwwwk....',
+    '....kwwwwk......',
+    '.....kkkk.......',
+    '....kKKKKKk.....',
+    '...kKKKKKKKk....',
+    '..kKKKKKKKKKk...',
+    '.kKKKKKKKKKKKk..',
+    '.kKKKKKKKKKKKk..',
+    '.kkkkkkkkkkkkk..',
   ],
 };
 

@@ -1,11 +1,13 @@
 // ===== 🖥️ UI agent 名下:程序化音效 + BGM(WebAudio 合成,零音频文件) =====
-// play(name): shoot hit hurt pickup coin levelup chest boss death victory click no
+// play(name): shoot hit hurt pickup coin levelup chest boss death victory click no dash evolve synergy
 const AC = window.AudioContext || window.webkitAudioContext;
 
 // 同名音效最小触发间隔(ms):防机关枪式叠音,也合并 main 与 screens 的重复 click
+// synergy ≥500ms:蒸汽爆发/感电联动可能同帧批量触发,由节流表兜底合并
 const GAPS = {
   shoot: 45, hit: 40, pickup: 60, coin: 80, click: 120, hurt: 90,
   no: 150, levelup: 250, chest: 200, boss: 400, death: 600, victory: 600,
+  dash: 90, evolve: 500, synergy: 500,
 };
 
 // BGM:Am - C - F - G 八步循环(低音 + 琶音),0.21 秒/步
@@ -33,6 +35,20 @@ const DEFS = {
               this._tone({ type: 'sine', f0: 2093, dur: 0.35, gain: 0.18, when: 0.46 }); },
   click()   { this._tone({ type: 'square', f0: 1900, f1: 1400, dur: 0.035, gain: 0.16 }); },
   no()      { this._tone({ type: 'square', f0: 120, f1: 82, dur: 0.16, gain: 0.45 }); },
+  dash()    { this._noise({ dur: 0.15, gain: 0.5, f: 420, f1: 3600, q: 0.7, type: 'highpass', atk: 0.04 }); },
+  evolve()  { // 上行五声琶音 + 双八度泛音 + 低音铺底,总时长约 0.6s,比 levelup 隆重
+    [523, 659, 784, 1046, 1318].forEach((f, i) => {
+      this._tone({ type: 'triangle', f0: f, dur: 0.18, gain: 0.3, when: i * 0.1 });
+      this._tone({ type: 'sine', f0: f * 2, dur: 0.14, gain: 0.11, when: i * 0.1 + 0.02 }); // 泛音层
+    });
+    this._tone({ type: 'sine', f0: 262, dur: 0.5, gain: 0.16 });             // 低音铺底
+    this._tone({ type: 'sine', f0: 2637, dur: 0.3, gain: 0.1, when: 0.44 }); // 高光收尾
+  },
+  synergy() { // 方波下滑 + 噪声「滋爆」:蒸汽爆发/感电联动
+    this._tone({ type: 'square', f0: 840, f1: 170, dur: 0.12, gain: 0.24 });
+    this._tone({ type: 'square', f0: 1260, f1: 260, dur: 0.12, gain: 0.15, when: 0.01 });
+    this._noise({ dur: 0.12, gain: 0.28, f: 2600, q: 0.8 });
+  },
 };
 
 export const SFX = {
@@ -116,16 +132,24 @@ export const SFX = {
     o.start(t0); o.stop(t0 + dur + 0.03);
   },
 
-  // 白噪声 + 滤波(打击感)
-  _noise({ dur = 0.08, gain = 0.3, f = 1200, q = 1, type = 'bandpass', when = 0, dest = null }) {
+  // 白噪声 + 滤波(打击感);f1=扫频终点,atk=起音过渡时长(whoosh 类用),均可选
+  _noise({ dur = 0.08, gain = 0.3, f = 1200, f1 = 0, q = 1, type = 'bandpass', atk = 0, when = 0, dest = null }) {
     const c = this.ctx;
     if (!this.noiseBuf) return;
     const t0 = c.currentTime + Math.max(0, when);
     const src = c.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
-    const flt = c.createBiquadFilter(); flt.type = type; flt.frequency.value = f; flt.Q.value = q;
+    const flt = c.createBiquadFilter(); flt.type = type; flt.Q.value = q;
+    flt.frequency.setValueAtTime(Math.max(1, f), t0);
+    if (f1 && f1 !== f) flt.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t0 + dur);
     const g = c.createGain();
-    g.gain.setValueAtTime(Math.max(0.0001, gain), t0);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    if (atk > 0) {
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), t0 + atk);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    } else {
+      g.gain.setValueAtTime(Math.max(0.0001, gain), t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    }
     src.connect(flt); flt.connect(g); g.connect(dest || this.sfxBus);
     src.start(t0); src.stop(t0 + dur + 0.03);
   },

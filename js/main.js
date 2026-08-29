@@ -186,9 +186,21 @@ showMenu();
 engine.start();
 
 // 调试:?cheat 快速获得经验 ?fast 时间加速(测试升级/Boss/通关流程用)
+if (location.search.includes('dev')) {
+  window.addEventListener('error', e => {
+    let d = document.getElementById('err-trap');
+    if (!d) {
+      d = document.createElement('div');
+      d.id = 'err-trap';
+      d.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99999;background:rgba(60,0,0,.92);color:#fff;font-size:11px;max-width:90vw;white-space:pre-wrap;padding:4px 6px;';
+      document.body.appendChild(d);
+    }
+    d.textContent += 'ERR: ' + e.message + ' @line' + e.lineno + '\n';
+  });
+}
 if (location.search.includes('cheat')) {
   setInterval(() => {
-    if (inRun && engine.player && engine.paused === 0) engine.player.addXp(4);
+    if (inRun && engine.player && engine.paused === 0) engine.player.addXp(10 + engine.player.level * 3);
   }, 1000);
 }
 if (location.search.includes('fast')) {

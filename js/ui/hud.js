@@ -1,6 +1,11 @@
-// ===== 🖥️ UI agent 名下:HUD(脏检查写 DOM / 掉血闪红 / 低血警示 / 武器图标栏) =====
+// ===== 🖥️ UI agent 名下:HUD(脏检查写 DOM / 掉血闪红 / 低血警示 / 武器图标栏 / 冲刺按钮 / 属性面板) =====
 import { drawSprite, spriteSize, SCALE } from '../sprites.js';
 import { WEAPONS } from '../game/weapons.js';
+import { CHARACTERS } from '../game/player.js';
+import { Input } from '../core/input.js';
+
+// 属性面板行标签(顺序与 _updateStats 的 vals 一一对应)
+const STAT_LABELS = ['攻击', '冷却', '护甲', '移速', '范围', '经验', '财运', '拾取'];
 
 // 小尺寸像素图标 canvas(关闭平滑、按 dpr 渲染保持锐利)
 function spriteCanvas(name, px) {
@@ -31,6 +36,8 @@ export const HUD = {
   _kills: -1, _gold: -1, _lv: -1,
   _bossOn: false, _bossRef: null, _bossName: '', _bossPct: -1,
   _wSig: '', _low: false, _flashT: 0,
+  _glyph: null, _cdSpan: null, _dashOn: null, _dashTxt: '', _dashT: -1e9, // 冲刺按钮
+  _statVals: null, _statSig: '', _statT: -1e9, _statWide: false,     // 属性面板
 
   init(g) {
     this.g = g;
@@ -38,19 +45,29 @@ export const HUD = {
      'hud-boss', 'hud-boss-fill', 'hud-boss-name', 'hud-weapons']
       .forEach(id => this.el[id] = document.getElementById(id));
     this.el.hpBar = document.querySelector('#hud .bar.hp');
+    this.el['btn-dash'] = document.getElementById('btn-dash');
+    this._initDashBtn();
+    this._initStatsPanel();
+    window.addEventListener('resize', () => this._applyStatWidth());
   },
 
   show(b) {
     this.visible = !!b;
     this.el.hud.classList.toggle('hidden', !this.visible);
+    // 冲刺按钮在 #hud 之外,需单独切换:仅对局中显示
+    if (this.el['btn-dash']) this.el['btn-dash'].classList.toggle('hidden', !this.visible);
     if (!this.visible) {
       this.el.hud.classList.remove('low-hp');
       this._low = false;
+      this._resetDashVisual();
     } else {
       // 重进对局:重置缓存,强制首帧刷新
       this._hp = -1; this._hpTxt = ''; this._hpW = ''; this._xpW = ''; this._sec = -1;
       this._kills = -1; this._gold = -1; this._lv = -1;
       this._bossOn = false; this._bossRef = null; this._bossName = ''; this._bossPct = -1;
+      this._dashT = -1e9; this._dashOn = null; this._dashTxt = null; // 冲刺按钮强制首帧刷新
+      this._statT = -1e9; this._statSig = '';                       // 属性面板强制刷新
+      this._applyStatWidth();
     }
   },
 
@@ -104,7 +121,7 @@ export const HUD = {
 
     // ---- 武器槽(签名变化才重建:长度或等级变化) ----
     let sig = '';
-    for (const wp of p.weapons) sig += wp.id + ':' + wp.lv + '|';
+    for (const wp of p.weapons) sig += wp.id + ':' + wp.lv + (wp.evolved ? 'e' : '') + '|';
     if (sig !== this._wSig) {
       this._wSig = sig;
       const box = this.el['hud-weapons'];
@@ -114,8 +131,9 @@ export const HUD = {
         const slot = document.createElement('div');
         slot.className = 'wslot';
         slot.style.position = 'relative';
-        slot.title = (W && W.name ? W.name : wp.id) + ' Lv.' + wp.lv;
-        if (W && W.icon) slot.appendChild(spriteCanvas(W.icon, 24));
+        const evo = wp.evolved && W && W.evo;
+        slot.title = evo ? (W.evo.evoName || W.name) : ((W && W.name ? W.name : wp.id) + ' Lv.' + wp.lv);
+        if (W && (evo ? W.evo.icon : W.icon)) slot.appendChild(spriteCanvas(evo ? W.evo.icon : W.icon, 24));
         const tag = document.createElement('span');
         tag.className = 'lv-tag';
         tag.style.cssText = 'position:absolute;right:-3px;bottom:-3px;font-size:10px;line-height:1;padding:2px 3px;background:#000;color:#fee761;border:1px solid #3a4466;';
@@ -124,6 +142,132 @@ export const HUD = {
         box.appendChild(slot);
       }
     }
+
+    // ---- 冲刺按钮 / 属性面板(各自节流) ----
+    const now = performance.now();
+    this._updateDash(now);
+    this._updateStats(now);
+  },
+
+  // ---------- 冲刺按钮 ----------
+  _initDashBtn() {
+    const btn = this.el['btn-dash'];
+    if (!btn || btn.dataset.hudInit) return;
+    btn.dataset.hudInit = '1';
+    btn.title = '双击方向键冲刺';
+    btn.style.touchAction = 'none'; // 快速连点不触发浏览器双击缩放
+    // 重建内容:⚡ 印文 + 冷却秒数覆盖层(冷却时盖住印文)
+    btn.innerHTML = '';
+    const glyph = document.createElement('span');
+    glyph.className = 'dash-glyph';
+    glyph.textContent = '⚡';
+    const cd = document.createElement('span');
+    cd.className = 'dash-cd';
+    cd.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;';
+    btn.append(glyph, cd);
+    this._glyph = glyph; this._cdSpan = cd;
+    const req = e => {
+      e.preventDefault();
+      if (this.g && this.g.paused) return; // 暂停/选卡期间不预存请求,避免恢复后误冲刺
+      Input.requestDash();
+    };
+    btn.addEventListener('pointerdown', req); // 触摸按下即时响应
+    btn.addEventListener('click', req);       // 键盘回车 / 兼容兜底
+  },
+
+  _updateDash(now) {
+    const btn = this.el['btn-dash'];
+    if (!btn || !this._cdSpan) return;
+    if (now - this._dashT < 100) return; // ≤100ms 节流
+    this._dashT = now;
+    const p = this.g.player;
+    const cd = p ? p.dashCd() : 0; // 只读战斗侧钳制后的剩余冷却,不自行计算
+    const cooling = cd > 0;
+    if (cooling !== this._dashOn) {
+      this._dashOn = cooling;
+      btn.classList.toggle('cooldown', cooling); // 就绪移除/冷却中添加,呼吸光↔褪色交给美术 CSS
+      if (this._glyph) this._glyph.style.visibility = cooling ? 'hidden' : 'visible';
+    }
+    const txt = cooling ? String(Math.ceil(cd)) : '';
+    if (txt !== this._dashTxt) { this._dashTxt = txt; this._cdSpan.textContent = txt; }
+  },
+
+  _resetDashVisual() {
+    const btn = this.el['btn-dash'];
+    if (btn) btn.classList.remove('cooldown');
+    if (this._cdSpan) this._cdSpan.textContent = '';
+    if (this._glyph) this._glyph.style.visibility = 'visible';
+    this._dashOn = null; this._dashTxt = ''; this._dashT = -1e9;
+  },
+
+  // ---------- 属性面板(宽 ≥900px 显示;500ms 节流、值变化才写) ----------
+  _initStatsPanel() {
+    const hud = this.el.hud;
+    if (!hud || this._statVals) return;
+    const box = document.createElement('div');
+    box.id = 'hud-stats';
+    box.className = 'hud-stats';
+    // 内联兜底样式:美术 CSS 尚无 .hud-stats 时也可用(不改 CSS,后续类样式可直接覆盖布局)
+    box.style.cssText =
+      'position:absolute;left:12px;top:calc(96px + env(safe-area-inset-top));z-index:5;' +
+      'min-width:128px;padding:8px 12px;pointer-events:none;' +
+      'background:rgba(236,229,211,.88);border:1px solid rgba(43,43,43,.5);border-radius:4px;' +
+      'box-shadow:2px 2px 0 rgba(43,43,43,.2);font-size:13px;line-height:1.95;color:#2b2b2b;text-shadow:0 1px 0 rgba(242,236,221,.9);';
+    this._statVals = [];
+    for (const label of STAT_LABELS) {
+      const row = document.createElement('div');
+      row.className = 'stat-row';
+      row.style.cssText = 'display:flex;justify-content:space-between;gap:16px;';
+      const n = document.createElement('span');
+      n.textContent = label;
+      const v = document.createElement('span');
+      v.style.cssText = 'font-weight:700;color:#b03a2e;'; // 朱砂数值
+      row.append(n, v);
+      box.appendChild(row);
+      this._statVals.push(v);
+    }
+    hud.appendChild(box);
+    this.el['hud-stats'] = box;
+    this._statSig = '';
+    this._statT = -1e9;
+    this._applyStatWidth();
+  },
+
+  _applyStatWidth() {
+    const box = this.el['hud-stats'];
+    if (!box) return;
+    this._statWide = window.innerWidth >= 900; // 移动端隐藏,不遮挡小屏视野
+    box.classList.toggle('hidden', !this._statWide);
+    if (this._statWide) this._statSig = ''; // 重新显示时强制刷新
+  },
+
+  _updateStats(now) {
+    if (!this._statWide || !this._statVals) return;
+    if (now - this._statT < 500) return;
+    this._statT = now;
+    const p = this.g.player;
+    if (!p || !p.stats) return;
+    const c = CHARACTERS[p.charId] || {}; // 基线取角色初始值;当前值含被动/商店强化来自 p.stats
+    const s = p.stats;
+    const pct = (v, base) => {
+      const d = Math.round((v / (base || 1) - 1) * 100);
+      return (d >= 0 ? '+' : '') + d + '%';
+    };
+    const cdr = Math.round((1 / (s.cdMult || 1) - 1) * 100); // >0 = 冷却缩短
+    const vals = [
+      pct(s.might, c.might),                        // 攻击:相对本角色基线的 +%
+      (cdr >= 0 ? '-' : '+') + Math.abs(cdr) + '%', // 冷却:负 % = 缩短
+      '+' + Math.round(s.armor - (c.armor || 0)),   // 护甲:相对基线 +N
+      pct(s.speed, c.speed),                        // 移速
+      pct(s.areaMult, 1),                           // 范围
+      pct(s.xpMult, 1),                             // 经验
+      pct(s.goldMult, 1),                           // 财运
+      String(Math.round(s.magnet)),                 // 拾取:绝对值(基线 60+char.magnet)
+    ];
+    const sig = vals.join('|');
+    if (sig === this._statSig) return; // 值变化才写 DOM
+    this._statSig = sig;
+    for (let i = 0; i < vals.length; i++) this._statVals[i].textContent = vals[i];
   },
 
   // 掉血瞬时闪红:重启动画(120ms 后移除)

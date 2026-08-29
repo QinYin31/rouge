@@ -1,19 +1,22 @@
-// ===== ⚔️ 战斗agent 名下:升级池与商店数据 =====
+// ===== ⚔️ 战斗agent 名下:升级池与商店数据(水墨江湖版 + 进化选项) =====
 // rollChoices 只读不改等级;applyChoice 落实加成(被动写 p.bonuses 后 p.recalc())。
+// 进化(CONTRACT v2):武器 Lv5 + 绑定被动 Lv5 → 金色 evolve 选项必占一档,每武器仅一次。
 import { WEAPONS, WEAPON_ORDER, MAX_WEAPONS, makeWeapon } from './weapons.js';
 import { combatState } from './enemies.js';
+import { Bus } from '../core/engine.js';
 import { Save } from '../core/save.js';
 
-// 8 种局内被动(权重方向与商店一致,数值更强)
+// 9 种局内被动(权重方向与商店一致,数值更强);crit 暴击之眼只进升级池,不进商店
 export const PASSIVES = {
-  might:  { name: '力量之书', icon: 'p_might',  maxLv: 5, desc: '攻击伤害 +12%/级' },
-  cd:     { name: '沙漏',     icon: 'p_cd',     maxLv: 5, desc: '武器冷却 -8%/级' },
-  speed:  { name: '疾风靴',   icon: 'p_speed',  maxLv: 5, desc: '移动速度 +8%/级' },
-  hp:     { name: '生命之心', icon: 'p_hp',     maxLv: 5, desc: '最大生命 +20/级' },
-  magnet: { name: '磁石',     icon: 'p_magnet', maxLv: 5, desc: '拾取范围 +25/级' },
-  xp:     { name: '贤者帽',   icon: 'p_xp',     maxLv: 5, desc: '经验获取 +10%/级' },
-  gold:   { name: '聚宝袋',   icon: 'p_gold',   maxLv: 5, desc: '金币获取 +15%/级' },
-  armor:  { name: '铁甲',     icon: 'p_armor',  maxLv: 5, desc: '护甲 +1/级' },
+  might:  { name: '力量',     icon: 'p_might',  maxLv: 5, desc: '内力浑厚,攻击伤害 +12%/级' },
+  cd:     { name: '沙漏',     icon: 'p_cd',     maxLv: 5, desc: '心如止水,武器冷却 -8%/级' },
+  speed:  { name: '疾风靴',   icon: 'p_speed',  maxLv: 5, desc: '身法 +8%/级,冲刺冷却 -4%/级' },
+  hp:     { name: '生命之心', icon: 'p_hp',     maxLv: 5, desc: '气血充盈,生命上限 +20/级' },
+  magnet: { name: '磁石',     icon: 'p_magnet', maxLv: 5, desc: '摄物摘星,拾取范围 +25/级' },
+  xp:     { name: '贤者帽',   icon: 'p_xp',     maxLv: 5, desc: '悟性超绝,经验获取 +10%/级' },
+  gold:   { name: '聚宝袋',   icon: 'p_gold',   maxLv: 5, desc: '财气随身,金币获取 +15%/级' },
+  armor:  { name: '铁甲',     icon: 'p_armor',  maxLv: 5, desc: '金钟罩体,护甲 +1/级' },
+  crit:   { name: '暴击之眼', icon: 'p_crit',   maxLv: 5, desc: '慧眼窥破绽,暴击率 +6%/级' },
 };
 
 // 8 种商店永久强化(开局经 applyShopBonuses 应用;护甲商店上限 2 级)
@@ -37,25 +40,36 @@ const PASSIVE_BONUS = {
   xp:     { key: 'xpMult',     mode: 'mult', v: 0.10 },
   gold:   { key: 'goldMult',   mode: 'mult', v: 0.15 },
   armor:  { key: 'armorFlat',  mode: 'add',  v: 1 },
+  // crit 无 bonuses 槽:applyChoice 在 recalc 后按等级直接写入 p.stats.crit
 };
 
-// 保底项(全满时):金币袋 / 大金币袋 / 烤肉,id 互不相同
+// 保底项(全满时):金币袋 / 大金币袋 / 馒头,id 互不相同
 function goldChoice(amount, big) {
   return big
     ? { kind: 'gold', id: 'gold_big', name: '大金币袋', desc: `+${amount} 金币`, icon: 'coin', amount }
     : { kind: 'gold', id: 'gold', name: '金币袋', desc: `+${amount} 金币`, icon: 'coin', amount };
 }
 function healChoice(p) {
-  return { kind: 'heal', id: 'heal', name: '烤肉', desc: `回复 ${45} 生命`, icon: 'meat', heal: 45,
+  return { kind: 'heal', id: 'heal', name: '馒头', desc: `回复 ${45} 生命`, icon: 'meat', heal: 45,
     _skip: p.hp >= p.stats.maxHp - 0.5 };
 }
 
-// 被动等级记录在 g.passiveLv(main 开局创建)
+// 加权不重复抽一项(从 pool 中 splice 移除)
+function weightedPick(pool) {
+  let tot = 0;
+  for (let i = 0; i < pool.length; i++) tot += pool[i].w;
+  let r = Math.random() * tot;
+  for (let i = 0; i < pool.length; i++) { r -= pool[i].w; if (r <= 0) return pool.splice(i, 1)[0]; }
+  return pool.splice(0, 1)[0];
+}
+
+// 被动等级记录在 g.passiveLv(main 开局创建;crit 等新键由 applyChoice 动态补)
 export function rollChoices(g) {
   const p = g.player;
   const plv = g.passiveLv || (g.passiveLv = {});
   const cands = [];
-  // 升级已有武器(权重最高)
+  // 进化候选:武器满级 + 绑定被动满级 + 尚未进化 → 必占一档(最高权重)
+  const evoIds = [];
   for (const w of p.weapons) {
     const d = WEAPONS[w.id];
     if (w.lv < d.maxLv) {
@@ -64,6 +78,9 @@ export function rollChoices(g) {
         name: `${d.name} Lv.${w.lv + 1}`,
         desc: d.lvText[Math.min(d.lvText.length - 1, w.lv)],
       });
+    } else if (!w.evolved) {
+      const evo = d.evo;
+      if (evo && (plv[evo.passive] || 0) >= PASSIVES[evo.passive].maxLv) evoIds.push(w.id);
     }
   }
   // 新武器(未满 4 把)
@@ -75,27 +92,24 @@ export function rollChoices(g) {
       cands.push({ kind: 'newWeapon', id, name: d.name, desc: d.desc, icon: d.icon, w: 6 });
     }
   }
-  // 被动
+  // 被动(含 crit 暴击之眼)
   for (const id in PASSIVES) {
     if ((plv[id] || 0) < PASSIVES[id].maxLv) {
       const d = PASSIVES[id];
       cands.push({ kind: 'passive', id, name: d.name, desc: d.desc, icon: d.icon, w: 7 });
     }
   }
-  // 全满保底:金币 / 回血
-  if (!cands.length) {
+  const out = [];
+  if (evoIds.length) { // 进化项独占一档,另两档为普通项
+    const id = evoIds[(Math.random() * evoIds.length) | 0];
+    const d = WEAPONS[id], evo = d.evo;
+    out.push({ kind: 'evolve', id, name: `⚡进化·${evo.evoName}`, desc: evo.desc, icon: evo.icon, evo: true });
+  }
+  if (!out.length && !cands.length) { // 全满保底:金币 / 回血
     return [goldChoice(25), healChoice(p), goldChoice(60, true)];
   }
-  // 加权不重复抽 3 项(避免重复项)
   const pool = cands.slice();
-  const out = [];
-  while (out.length < 3 && pool.length) {
-    let tot = 0;
-    for (let i = 0; i < pool.length; i++) tot += pool[i].w;
-    let r = Math.random() * tot, idx = 0;
-    for (let i = 0; i < pool.length; i++) { r -= pool[i].w; if (r <= 0) { idx = i; break; } }
-    out.push(pool.splice(idx, 1)[0]);
-  }
+  while (out.length < 3 && pool.length) out.push(weightedPick(pool));
   // 不足 3 项时补保底(满血时不给回血项)
   const fills = [goldChoice(25), healChoice(p), goldChoice(60, true)];
   for (let i = 0; i < fills.length && out.length < 3; i++) {
@@ -113,12 +127,28 @@ export function applyChoice(g, c) {
   } else if (c.kind === 'weapon') {
     const w = p.weapons.find(x => x.id === c.id);
     if (w && w.lv < WEAPONS[w.id].maxLv) w.lv++;
+  } else if (c.kind === 'evolve') { // 武器进化:实例原地升级为超武形态
+    const w = p.weapons.find(x => x.id === c.id);
+    if (w && !w.evolved) {
+      w.evolved = true;
+      w.evoId = c.id;
+      const evo = WEAPONS[c.id].evo;
+      g.addParticles(p.x, p.y, { n: 26, color: '#b03a2e', speed: 200, life: 0.8, size: 5, grav: 40 });
+      g.spawnText(p.x, p.y - 64, `${evo.evoName}!`, { color: '#b03a2e', size: 24, life: 1.6 });
+      Bus.emit('sfx', 'levelup');
+    }
   } else if (c.kind === 'passive') {
     g.passiveLv[c.id] = (g.passiveLv[c.id] || 0) + 1;
-    const b = PASSIVE_BONUS[c.id], bon = p.bonuses;
-    if (b.mode === 'mult') bon[b.key] *= (1 + b.v);
-    else bon[b.key] += b.v;
+    const b = PASSIVE_BONUS[c.id];
+    if (b) {
+      const bon = p.bonuses;
+      if (b.mode === 'mult') bon[b.key] *= (1 + b.v);
+      else bon[b.key] += b.v;
+    }
+    if (c.id === 'speed') p.dashCdMul = (p.dashCdMul || 1) * 0.96; // 疾风靴:冲刺冷却 -4%/级
     p.recalc();
+    // 暴击之眼:recalc 会重置 crit,故每次被动后按等级重写(基础 10% + 6%/级)
+    p.stats.crit = 0.1 + 0.06 * (g.passiveLv.crit || 0);
   } else if (c.kind === 'gold') {
     g.stats.gold += c.amount || 25;
   } else if (c.kind === 'heal') {
@@ -129,6 +159,7 @@ export function applyChoice(g, c) {
 // 开局时把商店永久强化应用到玩家(main 调用;同时标记本局开始)
 export function applyShopBonuses(p) {
   combatState.runActive = true;
+  p.dashCdMul = 1; // 开局重置疾风靴冲刺冷却倍率
   const shop = (Save.data && Save.data.shop) || {};
   const map = {
     might: 'mightMult', hp: 'hpFlat', speed: 'speedMult', cd: 'cdMult',

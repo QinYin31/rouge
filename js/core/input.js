@@ -2,8 +2,16 @@
 export const Input = {
   keys: new Set(),
   touch: { x: 0, y: 0, active: false },
+  _lastTap: { code: '', t: 0 },
+  _dashReq: false,
   init() {
     window.addEventListener('keydown', e => {
+      if (!e.repeat) {
+        const now = performance.now();
+        const isDir = e.code.startsWith('Key') || e.code.startsWith('Arrow');
+        if (isDir && e.code === this._lastTap.code && now - this._lastTap.t < 250) this.requestDash();
+        if (isDir) this._lastTap = { code: e.code, t: now };
+      }
       this.keys.add(e.code);
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
     });
@@ -11,6 +19,8 @@ export const Input = {
     window.addEventListener('blur', () => this.keys.clear());
   },
   setTouch(x, y, active) { this.touch.x = x; this.touch.y = y; this.touch.active = active; },
+  requestDash() { this._dashReq = true; },              // 冲刺按钮/双击方向调用
+  takeDashRequest() { const r = this._dashReq; this._dashReq = false; return r; },
   move() {
     if (this.touch.active) {
       const m = Math.hypot(this.touch.x, this.touch.y);

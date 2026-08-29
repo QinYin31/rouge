@@ -1,7 +1,8 @@
 // 粒子与飘字(对象池)
 import { Bus } from '../core/engine.js';
 
-const MAX_P = 700, MAX_T = 90;
+const isMobile = window.innerWidth < 600;
+const MAX_P = isMobile ? 320 : 700, MAX_T = 90; // 移动端减预算保流畅
 const pool = [], tpool = [];
 
 export function initParticles(g) {
@@ -44,6 +45,7 @@ export function initParticles(g) {
   });
 
   Bus.on('fx-burst', ({ x, y, n = 8, color = '#fff', speed = 90, life = 0.5, size = 4, grav = 0, spread = Math.PI * 2, dir = 0 }) => {
+    n = Math.round(n * (isMobile ? 0.6 : 1));
     for (let i = 0; i < n && pool.length < MAX_P; i++) {
       const a = dir + (Math.random() - 0.5) * spread;
       const v = speed * (0.5 + Math.random() * 0.7);

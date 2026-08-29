@@ -240,24 +240,27 @@ export const Screens = {
       if (done) return;
       done = true;
       this._unbindKeys();
-      SFX.play('click');
+      SFX.play(c && c.evo === true ? 'evolve' : 'click'); // 进化卡:专属华丽音
       onPick(c);
     };
 
-    choices.forEach((c, i) => {
+    // 进化卡(evo===true)稳定置顶,其余保持原顺序
+    const order = choices.filter(c => c.evo === true).concat(choices.filter(c => c.evo !== true));
+
+    order.forEach((c, i) => {
       const card = document.createElement('button');
-      card.className = 'card level-card';
+      card.className = 'card level-card' + (c.evo === true ? ' evo' : ''); // .evo = 朱砂描边+印泥脉动(美术 CSS)
       card.style.animationDelay = i * 70 + 'ms'; // 入场 stagger(配合 CSS 动画)
       const ico = document.createElement('div');
       ico.className = 'lv-icon';
       ico.appendChild(spriteCanvas([c.icon], 56));
       const nm = document.createElement('div');
       nm.className = 'lv-name';
-      nm.textContent = c.name;
+      nm.textContent = c.evoName || c.name;
       const ds = document.createElement('div');
       ds.className = 'lv-desc';
       ds.style.cssText = 'font-size:12px;color:#8b9bb4;margin-top:2px;';
-      ds.textContent = c.desc;
+      ds.textContent = c.evoDesc || c.desc;
       card.append(ico, nm, ds);
       bindTap(card, () => pick(c));
       list.appendChild(card);
@@ -277,7 +280,7 @@ export const Screens = {
     this.show('screen-levelup'); // 先切屏,再挂键盘(show 内会清理旧监听)
     this._lvKey = e => {
       const i = '123'.indexOf(e.key);
-      if (i >= 0 && i < choices.length) pick(choices[i]);
+      if (i >= 0 && i < order.length) pick(order[i]); // 1/2/3 跟随屏幕显示顺序
     };
     window.addEventListener('keydown', this._lvKey);
   },
