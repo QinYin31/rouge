@@ -22,8 +22,9 @@ export const ENEMY_TYPES = {
   turtle:        { name: '铁甲龟',   sprite: 'turtle',        hp: 170,  speed: 17, dmg: 14, r: 17, xp: 6,   coinP: 0.16, beh: 6,  col: '#9ac1c9', kb: 0 },
   wisp:          { name: '青灯鬼火', sprite: 'wisp',          hp: 26,   speed: 58, dmg: 10, r: 11, xp: 3,   coinP: 0.08, beh: 7,  col: '#2ce8f5', kb: 1 },
   reaper:        { name: '黑无常',   sprite: 'reaper',        hp: 95,   speed: 68, dmg: 22, r: 18, xp: 8,   coinP: 0.25, beh: 8,  col: '#68386c', kb: 0.4 },
-  boss_golem:    { name: '石像守卫', sprite: 'boss_golem',    hp: 2200, speed: 44, dmg: 26, r: 38, xp: 60,  coinP: 1,    beh: 9,  col: '#b55088', kb: 0.12, boss: 1 },
-  boss_overlord: { name: '无常尊者', sprite: 'boss_overlord', hp: 9000, speed: 42, dmg: 30, r: 48, xp: 150, coinP: 1,    beh: 10, col: '#e43b44', kb: 0.05, boss: 1 },
+  // Boss 血量(v2.1 §4):-15% 配合敌人血量曲线软化(2200→1870 / 9000→7650)
+  boss_golem:    { name: '石像守卫', sprite: 'boss_golem',    hp: 1870, speed: 44, dmg: 26, r: 38, xp: 60,  coinP: 1,    beh: 9,  col: '#b55088', kb: 0.12, boss: 1 },
+  boss_overlord: { name: '无常尊者', sprite: 'boss_overlord', hp: 7650, speed: 42, dmg: 30, r: 48, xp: 150, coinP: 1,    beh: 10, col: '#e43b44', kb: 0.05, boss: 1 },
 };
 
 let uid = 0;
@@ -318,7 +319,7 @@ function ringZap(g, pr) {
     SYN.kx = (dx / dd) * 90; SYN.ky = (dy / dd) * 90;
     damageEnemy(g, e, pr.dmg * pr.zapMult, SYN);
     zapLine(g, pr.x + (dx / dd) * (pr.r - 10), pr.y + (dy / dd) * (pr.r - 10), e.x, e.y);
-    if (++n >= 2) break;
+    if (++n >= (pr.zapN || 2)) break; // zapN:雷动金钟环缘放电目标数(v2.2 覆盖放大)
   }
 }
 
@@ -512,11 +513,11 @@ export function initCombat(g) {
         pr.x += pr.vx * dt; pr.y += pr.vy * dt;
         if (pr.spin) pr.rot += pr.spin * dt;
       }
-      if (pr.trail) { // 贯日长虹:朱砂拖尾
+      if (pr.trail) { // 弹体拖尾(贯日长虹朱砂 / 剑气青焰,色可配)
         pr.trailT -= dt;
         if (pr.trailT <= 0) {
           pr.trailT = 0.05;
-          g.addParticles(pr.x, pr.y, { n: 1, color: '#b03a2e', speed: 18, life: 0.26, size: 4 });
+          g.addParticles(pr.x, pr.y, { n: 1, color: pr.trailCol || '#b03a2e', speed: 18, life: 0.26, size: 4 });
         }
       }
       if (pr.fromEnemy) { // 敌方弹幕远离即回收
@@ -545,9 +546,10 @@ export function initCombat(g) {
           pr.hitIds.add(e.id);
           let dmg = pr.dmg;
           if (pr.bmRet && pr.retMult) dmg *= pr.retMult; // 金刃轮回:回程双倍伤
-          if (pr.ring) { // 冲击环:沿径向击退
+          if (pr.ring) { // 冲击环:沿径向击退(kbMult:金钟罩 v2.2 击退逐级成长)
             const dd = Math.sqrt(ex * ex + ey * ey) || 1;
-            HIT.kx = (ex / dd) * 120; HIT.ky = (ey / dd) * 120;
+            const kb = 120 * (pr.kbMult || 1);
+            HIT.kx = (ex / dd) * kb; HIT.ky = (ey / dd) * kb;
           } else {
             const km = pr.kbMult || 1;
             HIT.kx = pr.vx * 0.09 * km; HIT.ky = pr.vy * 0.09 * km;

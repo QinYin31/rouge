@@ -156,16 +156,18 @@ export const HUD = {
     btn.dataset.hudInit = '1';
     btn.title = '双击方向键冲刺';
     btn.style.touchAction = 'none'; // 快速连点不触发浏览器双击缩放
-    // 重建内容:⚡ 印文 + 冷却秒数覆盖层(冷却时盖住印文)
+    // 重建内容:冷却进度环 + 「冲」印文 + 冷却秒数覆盖层(冷却时盖住印文)
     btn.innerHTML = '';
+    const ring = document.createElement('span');
+    ring.className = 'dash-ring';
     const glyph = document.createElement('span');
     glyph.className = 'dash-glyph';
-    glyph.textContent = '⚡';
+    glyph.textContent = '冲';
     const cd = document.createElement('span');
     cd.className = 'dash-cd';
     cd.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;';
-    btn.append(glyph, cd);
-    this._glyph = glyph; this._cdSpan = cd;
+    btn.append(ring, glyph, cd);
+    this._glyph = glyph; this._cdSpan = cd; this._dashRing = ring; this._dashMax = 0; this._ringPct = -1;
     const req = e => {
       e.preventDefault();
       if (this.g && this.g.paused) return; // 暂停/选卡期间不预存请求,避免恢复后误冲刺
@@ -187,9 +189,22 @@ export const HUD = {
       this._dashOn = cooling;
       btn.classList.toggle('cooldown', cooling); // 就绪移除/冷却中添加,呼吸光↔褪色交给美术 CSS
       if (this._glyph) this._glyph.style.visibility = cooling ? 'hidden' : 'visible';
+      if (!cooling) { this._dashMax = 0; this._ringPct = -1; if (this._dashRing) this._dashRing.style.background = 'none'; }
+      else this._dashMax = 0;
     }
+    if (cooling) this._dashMax = Math.max(this._dashMax, cd); // 记录本次冷却总量,供进度环比例
     const txt = cooling ? String(Math.ceil(cd)) : '';
     if (txt !== this._dashTxt) { this._dashTxt = txt; this._cdSpan.textContent = txt; }
+    // 冷却进度环(conic 扫描,≥5% 步进才重写样式)
+    if (this._dashRing) {
+      const pct = cooling && this._dashMax > 0 ? Math.round(cd / this._dashMax * 20) / 20 : 0;
+      if (pct !== this._ringPct) {
+        this._ringPct = pct;
+        this._dashRing.style.background = pct > 0
+          ? `conic-gradient(rgba(43,43,43,.5) ${pct * 360}deg, transparent 0deg)`
+          : 'none';
+      }
+    }
   },
 
   _resetDashVisual() {
@@ -197,7 +212,8 @@ export const HUD = {
     if (btn) btn.classList.remove('cooldown');
     if (this._cdSpan) this._cdSpan.textContent = '';
     if (this._glyph) this._glyph.style.visibility = 'visible';
-    this._dashOn = null; this._dashTxt = ''; this._dashT = -1e9;
+    if (this._dashRing) this._dashRing.style.background = 'none';
+    this._dashOn = null; this._dashTxt = ''; this._dashT = -1e9; this._dashMax = 0; this._ringPct = -1;
   },
 
   // ---------- 属性面板(宽 ≥900px 显示;500ms 节流、值变化才写) ----------

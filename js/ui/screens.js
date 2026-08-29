@@ -72,7 +72,7 @@ function buildToggles(container, data, onToggle) {
 
 export const Screens = {
   g: null, current: null, el: {},
-  _lvKey: null, _lvHint: null, _pauseInfo: null, _selTok: 0,
+  _lvKey: null, _lvHint: null, _pauseInfo: null, _selTok: 0, _rerollUsed: false,
 
   init(g) {
     this.g = g;
@@ -88,6 +88,7 @@ export const Screens = {
   hide() {
     for (const k of SCREENS) this.el[k].classList.add('hidden');
     this.current = null;
+    this._rerollUsed = false; // 面板关闭:刷新状态复位(下一局/下次升级重新可用)
     this._unbindKeys();
   },
 
@@ -231,14 +232,15 @@ export const Screens = {
     this.show('screen-shop');
   },
 
-  // ---------- 升级三选一 ----------
-  showLevelUp(choices, onPick) {
+  // ---------- 升级三选一(第三参 onReroll 可选:每次升级附 1 次免费刷新,契约 v2.1-5) ----------
+  showLevelUp(choices, onPick, onReroll) {
     const list = this.el['screen-levelup'].querySelector('#levelup-cards') || document.getElementById('levelup-cards');
     list.innerHTML = '';
     let done = false;
     const pick = c => {
       if (done) return;
       done = true;
+      this._rerollUsed = false; // 本次升级已做出选择,链式升级的下一档重新享有刷新
       this._unbindKeys();
       SFX.play(c && c.evo === true ? 'evolve' : 'click'); // 进化卡:专属华丽音
       onPick(c);
@@ -251,6 +253,15 @@ export const Screens = {
       const card = document.createElement('button');
       card.className = 'card level-card' + (c.evo === true ? ' evo' : ''); // .evo = 朱砂描边+印泥脉动(美术 CSS)
       card.style.animationDelay = i * 70 + 'ms'; // 入场 stagger(配合 CSS 动画)
+      if (c.rec) { // 组合技推荐角标(CONTRACT v2.2 §8)
+        card.style.position = 'relative';
+        const rec = document.createElement('span');
+        rec.className = 'rec-tag';
+        rec.textContent = '荐·' + c.rec;
+        rec.style.cssText = 'position:absolute;top:-9px;right:10px;padding:2px 7px;background:#b03a2e;color:#f2ecdd;' +
+          'font-size:11px;font-weight:700;letter-spacing:1px;border:1px solid #8c2f27;box-shadow:1px 1px 0 rgba(43,43,43,.4);';
+        card.appendChild(rec);
+      }
       const ico = document.createElement('div');
       ico.className = 'lv-icon';
       ico.appendChild(spriteCanvas([c.icon], 56));
@@ -266,21 +277,48 @@ export const Screens = {
       list.appendChild(card);
     });
 
-    // 操作提示(一次性创建,复用节点)
+    // 免费刷新按钮(仅当 main 传入 onReroll 时渲染;每次升级限 1 次,快捷键 R)
     const panel = this.el['screen-levelup'].querySelector('.panel');
+    const stale = document.getElementById('btn-reroll');
+    if (stale) stale.remove(); // 清理上一次面板遗留(重建面板兼容)
+    const canReroll = typeof onReroll === 'function' && !this._rerollUsed;
+    const doReroll = () => {
+      if (done || this._rerollUsed || typeof onReroll !== 'function') return;
+      this._rerollUsed = true;
+      this._unbindKeys(); // R 键与按钮一并失效;main 重建面板后会重新挂新的
+      const b = document.getElementById('btn-reroll');
+      if (b) b.remove(); // 立即从面板移除,视觉上不可再点
+      SFX.play('click');
+      onReroll(); // main 重新 roll 并重建面板,不消耗选择机会
+    };
+    if (canReroll && panel) {
+      const btn = document.createElement('button');
+      btn.id = 'btn-reroll';
+      btn.className = 'btn reroll-btn';
+      btn.textContent = '🔄 刷新 (R)';
+      // 内联兜底:小号、卡片下方居中、≥44px 触控(宣纸底墨框由现有 .btn 类提供,正式样式交美术 .reroll-btn)
+      btn.style.cssText = 'display:block;font-size:13px;padding:8px 20px;min-height:44px;margin:12px auto 0;';
+      bindTap(btn, doReroll);
+      list.insertAdjacentElement('afterend', btn); // 卡片下方
+    }
+
+    // 操作提示(一次性创建,复用节点)
     if (panel) {
       if (!this._lvHint) {
         this._lvHint = document.createElement('p');
         this._lvHint.className = 'menu-stats';
-        this._lvHint.textContent = ('ontouchstart' in window) ? '点击卡片完成选择' : '按 1 / 2 / 3 快速选择';
       }
+      const touch = ('ontouchstart' in window);
+      this._lvHint.textContent = (touch ? '点击卡片完成选择' : '按 1 / 2 / 3 快速选择') +
+        (canReroll ? (touch ? ',或刷新选项' : ',R 刷新') : '');
       panel.appendChild(this._lvHint);
     }
 
     this.show('screen-levelup'); // 先切屏,再挂键盘(show 内会清理旧监听)
     this._lvKey = e => {
       const i = '123'.indexOf(e.key);
-      if (i >= 0 && i < order.length) pick(order[i]); // 1/2/3 跟随屏幕显示顺序
+      if (i >= 0 && i < order.length) { pick(order[i]); return; } // 1/2/3 跟随屏幕显示顺序
+      if (canReroll && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'r') doReroll(); // R = 免费刷新
     };
     window.addEventListener('keydown', this._lvKey);
   },

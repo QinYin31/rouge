@@ -1,7 +1,15 @@
 // ===== ⚔️ 战斗agent 名下:武器系统(9 武器 × 5 级 + 9 进化超武,水墨江湖版) =====
 // 约定:玩家投射物统一 g.addProjectile(p),命中/爆炸/追踪/区域/元素状态结算在 enemies.js 的 initCombat updater 中。
 // 进化(CONTRACT v2):武器 Lv5 且绑定被动 Lv5 → rollChoices 出 kind:'evolve' 金色选项(必占一档);
-//       applyChoice 置 w.evolved=true / w.evoId=id,此后 update 走进化分支(单发伤害≈满级普通 2~3 倍 + 形态质变)。
+//       applyChoice 置 w.evolved=true / w.evoId=id,此后 update 走进化分支。
+// CONTRACT v2.1 手感与平衡补丁:
+//  §1 墨雨:朝怪物最多的方向落瓶(600px 内 12 扇区单次遍历分桶 O(n),取质心钳 180~380px);墨染乾坤不变。
+//  §2 剑气:重做为贯穿扇形——朝最近之敌一次扇出 3~5 道(3/3/4/4/5),开角 0.5→0.9rad,
+//       射程 = 弹速680 × 寿命0.8 ≈ 544px,穿透 2/2/3/3/4,单发伤害约原 60~70%(总伤靠覆盖与穿透反超)。
+//  §3 全武器每级伤害斜率 +30~40%(原 ~20%),部分等级追加数量/范围/转速;进化数值随新基准同步校准。
+// CONTRACT v2.2 §7 清怪爽感:升级主体成长改「覆盖/效率」——每级至少一项覆盖性成长
+//  (投射物 +1 / 范围 / 射程 / 持续 / 穿透 / 连锁 / 冷却),伤害仅次要增长(+10~15%/级);
+//  §8 组合推荐:rollChoices 输出 rec 标记(见 upgrades.js)。进化形态同步放大覆盖。
 import { Bus } from '../core/engine.js';
 import { drawSprite, has } from '../sprites.js';
 import { damageEnemy, applyStatus, chainLightning } from './enemies.js';
@@ -22,80 +30,95 @@ const QB = [];
 export const WEAPONS = {
   knife: {
     name: '剑气', icon: 'w_knife', maxLv: 5,
-    desc: '掷出无形剑气,斩向最近之敌',
-    base: { dmg: [10, 11, 13, 17, 21], cd: [1.1, 1.0, 0.95, 0.9, 0.75], n: [1, 2, 3, 3, 3], spread: [0.1, 0.18, 0.3, 0.38, 0.46] },
-    lvText: ['掷出 1 道剑气', '+1 剑气', '+1 剑气,扇形织剑', '剑气锋锐,伤害 +30%', '剑意凝练,出剑更快更狠'],
-    evo: { passive: 'might', icon: 'w_knife_evo', evoName: '万剑归宗', desc: '八柄剑气环身高速绞杀,触之即溃,强击退如潮' },
+    desc: '朝最近之敌扇形射出贯穿剑气,透敌而过',
+    // v2.2 覆盖导向:每级 +1 道剑气,穿透/扇面/弹速射程逐级成长;伤害仅 +10~15%/级
+    // 射程 = spd × life:540 → 720px
+    base: {
+      dmg: [6, 7, 8, 9, 10], cd: [1.1, 1.0, 0.95, 0.88, 0.78], n: [3, 4, 5, 6, 7],
+      fan: [0.5, 0.6, 0.72, 0.84, 0.96], pierce: [2, 3, 3, 4, 5],
+      spd: [680, 700, 725, 760, 800], life: [0.8, 0.82, 0.85, 0.88, 0.9],
+    },
+    lvText: ['朝最近之敌扇出 3 道贯穿剑气(射程 540,穿透 2)', '+1 道剑气(4 道),穿透 +1,伤害 +17%', '+1 道剑气(5 道),扇面加宽,剑速与射程提升', '+1 道剑气(6 道),穿透 +1,伤害 +13%', '+1 道剑气(7 道),穿透 +1,射程 +30%'],
+    evo: { passive: 'might', icon: 'w_knife_evo', evoName: '万剑归宗', desc: '十柄剑气环身高速绞杀,触之即溃,强击退如潮' },
   },
   wand: {
     name: '御风', icon: 'w_bolt', maxLv: 5,
     desc: '御风而行,风刃追踪强敌',
-    base: { dmg: [12, 15, 15, 19, 23], cd: [1.25, 1.1, 1.1, 1.0, 0.9], n: [1, 1, 2, 2, 3], home: [3.2, 4.4, 4.4, 5.4, 6.4] },
-    lvText: ['御出 1 道风刃', '风刃更利,伤害 +25%', '+1 风刃', '风势更紧,追踪更强', '+1 风刃,御风更疾'],
-    evo: { passive: 'cd', icon: 'w_wand_evo', evoName: '风卷残云', desc: '风刃三连不绝如洪流,追踪锁敌,无孔不入' },
+    // v2.2 覆盖导向:+1 风刃 / 追踪强度 / 弹速逐级成长
+    base: { dmg: [12, 13, 15, 17, 19], cd: [1.25, 1.15, 1.05, 0.95, 0.85], n: [1, 2, 3, 3, 4], home: [3.2, 4.2, 5.2, 6.4, 7.6], spd: [330, 345, 360, 390, 430] },
+    lvText: ['御出 1 道追踪风刃', '+1 风刃(2 道),追踪更紧,伤害 +8%', '+1 风刃(3 道),追踪更紧,伤害 +15%', '追踪大幅增强,风刃提速,伤害 +13%', '+1 风刃(4 道),御风更疾,伤害 +12%'],
+    evo: { passive: 'cd', icon: 'w_wand_evo', evoName: '风卷残云', desc: '风刃四连不绝如洪流,追踪锁敌,无孔不入' },
   },
   bow: {
     name: '贯日', icon: 'w_arrow', maxLv: 5,
     desc: '力贯长虹,一箭洞穿众敌',
-    base: { dmg: [24, 28, 34, 42, 52], cd: [1.5, 1.4, 1.3, 1.2, 1.05], pierce: [1, 2, 3, 4, 6] },
-    lvText: ['弯弓射出贯日箭', '箭势更烈,+1 穿透', '+1 穿透,伤害 +21%', '+1 穿透', '连珠箭雨,+2 穿透且更迅疾'],
+    // v2.2 覆盖导向:每级穿透 +2,射程与击退逐级成长(射程 1020 → 1326px)
+    base: { dmg: [25, 28, 32, 36, 40], cd: [1.5, 1.4, 1.3, 1.2, 1.05], pierce: [1, 3, 5, 7, 9], spd: [680, 700, 725, 750, 780], life: [1.5, 1.55, 1.6, 1.65, 1.7], kb: [1, 1.1, 1.2, 1.35, 1.5] },
+    lvText: ['弯弓射出贯日箭,洞穿一敌', '穿透 +2(共 3),箭势更远,伤害 +12%', '穿透 +2(共 5),箭势更远,伤害 +14%', '穿透 +2(共 7),击退增强,伤害 +13%', '穿透 +2(共 9),射程最远,伤害 +11%'],
     evo: { passive: 'speed', icon: 'w_bow_evo', evoName: '贯日长虹', desc: '巨箭贯日,无限洞穿,强击退如浪推山' },
   },
   orb: {
     name: '墨渊', icon: 'w_orb', maxLv: 5,
     desc: '墨珠环绕护体,触敌即伤',
-    base: { dmg: [9, 11, 14, 17, 21], cd: [0, 0, 0, 0, 0], n: [1, 2, 2, 3, 4], r: [64, 68, 74, 80, 86] },
-    lvText: ['1 颗墨珠环身而转', '+1 墨珠', '墨珠更巨更沉', '+1 墨珠', '+1 墨珠,墨压更重'],
-    evo: { passive: 'armor', icon: 'w_orb_evo', evoName: '周天星斗', desc: '六颗大墨珠周天巡转,撞击处墨爆四溅' },
+    // v2.2 覆盖导向:每级 +1 墨珠,环绕半径/转速逐级成长
+    base: { dmg: [9, 10, 11, 12, 14], cd: [0, 0, 0, 0, 0], n: [1, 2, 3, 4, 5], r: [64, 74, 84, 94, 104], spin: [3.2, 3.5, 3.8, 4.1, 4.5] },
+    lvText: ['1 颗墨珠环身而转', '+1 墨珠(2 颗),环绕半径扩大,墨毒 +11%', '+1 墨珠(3 颗),转速更疾,墨毒 +10%', '+1 墨珠(4 颗),环绕半径扩大,墨毒 +9%', '+1 墨珠(5 颗),转速更疾,墨毒 +17%'],
+    evo: { passive: 'armor', icon: 'w_orb_evo', evoName: '周天星斗', desc: '七颗大墨珠周天巡转,撞击处墨爆更广' },
   },
   lightning: {
     name: '五雷', icon: 'lightning_v', maxLv: 5,
     desc: '五雷正法,天雷劈落邪祟',
-    base: { dmg: [20, 24, 30, 38, 46], cd: [2.1, 1.9, 1.7, 1.5, 1.3], n: [1, 2, 2, 3, 4] },
-    lvText: ['天雷初鸣,劈向一敌', '雷法渐精,+1 落雷', '雷威更盛,伤害 +25%', '+1 落雷', '雷动九霄,+1 落雷且更迅疾'],
-    evo: { passive: 'xp', icon: 'w_lightning_evo', evoName: '九天神雷', desc: '同屏九雷齐落,雷霆连锁,邪祟辟易' },
+    // v2.2 覆盖导向:每级 +1 落雷,索敌半径扩大;高等级自带连锁(3 级 2 连锁 → 5 级 3 连锁)
+    base: { dmg: [20, 23, 26, 29, 33], cd: [2.1, 1.9, 1.75, 1.55, 1.35], n: [1, 2, 3, 4, 5], R: [440, 460, 485, 515, 555], chainN: [0, 0, 2, 2, 3], chainR: 130 },
+    lvText: ['天雷初鸣,劈向一敌', '+1 落雷(2 道),雷域扩大,伤害 +15%', '+1 落雷(3 道),新增连锁(跳 2 敌),伤害 +13%', '+1 落雷(4 道),雷域扩大,伤害 +12%', '+1 落雷(5 道),连锁 +1(跳 3 敌),伤害 +14%'],
+    evo: { passive: 'xp', icon: 'w_lightning_evo', evoName: '九天神雷', desc: '同屏九雷齐落,雷霆四连锁链,邪祟辟易' },
   },
   fireball: {
     name: '焚天', icon: 'w_fireball', maxLv: 5,
     desc: '弹指烈焰,命中爆开焚敌',
-    base: { dmg: [18, 22, 26, 32, 40], cd: [1.7, 1.6, 1.5, 1.4, 1.25], boomR: [48, 54, 62, 72, 84] },
-    lvText: ['弹指烈焰,命中爆开', '火势蔓延,爆炸更大', '焰威更盛,爆炸更大', '真火淬炼,伤害 +23%', '焚天之势,爆炸更巨更疾'],
+    // v2.2 覆盖导向:爆炸半径大增(+22~25%/级)、灼烧持续 +0.5秒/级、弹速提升
+    base: { dmg: [18, 20, 22, 25, 28], cd: [1.7, 1.6, 1.5, 1.4, 1.25], boomR: [48, 60, 74, 90, 110], burnHit: [3, 3.5, 4, 4.5, 5], spd: [300, 312, 324, 336, 350] },
+    lvText: ['弹指烈焰,命中爆开(半径 48)', '爆炸半径 +25%,灼烧 +0.5秒,伤害 +11%', '爆炸半径 +23%,弹速提升,伤害 +10%', '爆炸半径 +22%,灼烧 +0.5秒,伤害 +14%', '爆炸半径 +22%,弹速提升,灼烧 +0.5秒,伤害 +12%'],
     evo: { passive: 'hp', icon: 'w_fireball_evo', evoName: '焚天煮海', desc: '烈焰超爆,大地燃灼,火海经久不熄' },
   },
   boomerang: {
     name: '回风', icon: 'w_boomerang', maxLv: 5,
     desc: '回风落雁,去而复返',
-    base: { dmg: [16, 20, 24, 30, 36], cd: [1.8, 1.7, 1.6, 1.5, 1.35], n: [1, 1, 2, 2, 3], spd: [430, 450, 470, 490, 510] },
-    lvText: ['掷出回风刃', '刃锋更利,伤害 +25%', '+1 回风刃', '风回更疾,伤害 +25%', '+1 回风刃'],
-    evo: { passive: 'gold', icon: 'w_boomerang_evo', evoName: '金刃轮回', desc: '三枚巨刃轮回往复,回程伤势倍之' },
+    // v2.2 覆盖导向:+1 镖 / 镖体碰撞半径增大 / 弹速射程提升
+    base: { dmg: [16, 18, 20, 22, 25], cd: [1.8, 1.7, 1.6, 1.5, 1.35], n: [1, 2, 2, 3, 4], spd: [440, 470, 500, 540, 580], r: [11, 12, 13, 14, 16] },
+    lvText: ['掷出回风刃,去而复返', '+1 回风刃(2 枚),伤害 +13%', '镖体增大,去势更远,伤害 +11%', '+1 回风刃(3 枚),镖体再增,伤害 +10%', '+1 回风刃(4 枚),射程大增,伤害 +14%'],
+    evo: { passive: 'gold', icon: 'w_boomerang_evo', evoName: '金刃轮回', desc: '四枚巨刃轮回往复,回程伤势倍之' },
   },
   holy: {
     name: '墨雨', icon: 'w_flask', maxLv: 5,
-    desc: '泼墨成域,墨湿蚀敌',
-    base: { tick: [6, 8, 10, 13, 16], cd: [2.5, 2.4, 2.3, 2.2, 2.0], n: [1, 1, 2, 2, 3], r: [54, 60, 66, 74, 82], dur: [2.6, 3.0, 3.4, 3.8, 4.4] },
-    lvText: ['泼墨成域,蚀敌血肉', '墨域更广更久', '+1 墨域', '墨毒更深,伤害提升', '+1 墨域,经久不散'],
+    desc: '朝群敌最密处泼墨成域,墨湿蚀敌',
+    // v2.2 覆盖导向:墨域半径大增(+18%/级)、持续 +0.4~0.6秒/级、瓶数 +1
+    base: { tick: [6, 7, 8, 9, 10], cd: [2.5, 2.4, 2.3, 2.2, 2.0], n: [1, 2, 2, 3, 3], r: [54, 64, 76, 90, 106], dur: [2.6, 3.0, 3.5, 4.0, 4.6] },
+    lvText: ['朝群敌最密处泼墨成域(半径 54,持续 2.6秒)', '+1 墨瓶(2 瓶),墨域扩大,持续 +0.4秒', '墨域大幅扩大,持续 +0.5秒,墨毒 +14%', '+1 墨瓶(3 瓶),墨域再扩,墨毒 +13%', '墨域再扩 +18%,持续 +0.6秒,墨毒 +11%'],
     evo: { passive: 'magnet', icon: 'w_holy_evo', evoName: '墨染乾坤', desc: '大型墨域随身缓转,墨染之处万物皆湿' },
   },
   shield: {
     name: '金钟罩', icon: 'w_shield', maxLv: 5,
     desc: '金钟罩体,震荡波推敌',
-    base: { dmg: [14, 18, 23, 29, 36], cd: [3.4, 3.1, 2.8, 2.5, 2.2], maxR: [150, 172, 194, 218, 244] },
-    lvText: ['金钟震荡,推开来敌', '钟声更沉,伤害与范围提升', '钟鸣更急,冷却缩短', '金钟加固,伤害与范围提升', '钟鸣九霄,伤害大增且更疾'],
-    evo: { passive: 'crit', icon: 'w_shield_evo', evoName: '雷动金钟', desc: '钟鸣频率倍增,环缘雷光放电' },
+    // v2.2 覆盖导向:钟域半径大增(+17~20%/级)、频率(冷却)与击退逐级成长
+    base: { dmg: [14, 16, 18, 20, 23], cd: [3.4, 3.1, 2.8, 2.5, 2.2], maxR: [150, 180, 214, 252, 294], kb: [1, 1.1, 1.2, 1.3, 1.45] },
+    lvText: ['金钟震荡,推开来敌(半径 150)', '钟域扩大 +20%,击退增强,伤害 +14%', '钟域扩大 +19%,钟鸣更急,伤害 +13%', '钟域扩大 +18%,击退增强,伤害 +11%', '钟域大扩 +17%,钟鸣更急,伤害 +15%'],
+    evo: { passive: 'crit', icon: 'w_shield_evo', evoName: '雷动金钟', desc: '钟鸣频率倍增,环缘雷光放电更远更频' },
   },
 };
 
-// 进化形态数值表(单发伤害 ≈ 满级普通 ×2.2~2.6;频率/范围按形态质变另行放大)
+// 进化形态数值表(v2.2:覆盖同步放大——数量/半径/连锁/火区全面加码,伤害微调;
+// 单发/单次伤害维持 ≈ 各自满级普通形态总伤 ×2.5~3 倍率档)
 const EVO = {
-  knife:     { n: 8, r: 110, spin: 7.2, dmg: 50, hitCd: 0.3, kb: 175 },
-  wand:      { n: 3, cd: 0.30, dmg: 50, spd: 430, home: 8.5, life: 1.7 },
-  bow:       { cd: 0.9, dmg: 135, spd: 950, r: 17, life: 1.6, kbMult: 3.2 },
-  orb:       { n: 6, r: 112, spin: 4.4, dmg: 54, hitCd: 0.42, kb: 90, splashR: 76, splashMult: 0.55 },
-  lightning: { n: 9, cd: 1.4, dmg: 100, chainN: 3, chainR: 140, chainMult: 0.5 },
-  fireball:  { cd: 1.15, dmg: 92, spd: 330, boomR: 150, boomMult: 1.0, zoneR: 88, zoneDur: 3, zoneTick: 15 },
-  boomerang: { n: 3, cd: 1.15, dmg: 80, spd: 545, r: 15, retMult: 2 },
-  holy:      { r: 150, dmg: 38, tick: 0.35 },
-  shield:    { cd: 1.1, dmg: 80, maxR: 252, grow: 480, zapCd: 0.22, zapMult: 0.45 },
+  knife:     { n: 10, r: 132, spin: 8.2, dmg: 86, hitCd: 0.3, kb: 175 }, // 十剑环身:环绕单敌 86/0.3≈287/s
+  wand:      { n: 4, cd: 0.25, dmg: 72, spd: 470, home: 9.5, life: 1.9 }, // 四连弹幕,更快更黏
+  bow:       { cd: 0.8, dmg: 188, spd: 1040, r: 20, life: 1.8, kbMult: 3.6 }, // 巨箭更巨更快更远
+  orb:       { n: 7, r: 132, spin: 5.4, dmg: 66, hitCd: 0.42, kb: 90, splashR: 96, splashMult: 0.6 }, // 七珠+墨爆扩大
+  lightning: { n: 9, cd: 1.22, dmg: 108, chainN: 4, chainR: 160, chainMult: 0.55 }, // 连锁 +1、连锁半径扩大
+  fireball:  { cd: 1.05, dmg: 115, spd: 360, boomR: 185, boomMult: 1.0, zoneR: 112, zoneDur: 3.6, zoneTick: 16 }, // 超爆+火海更广更久
+  boomerang: { n: 4, cd: 1.05, dmg: 96, spd: 610, r: 18, retMult: 2 }, // 四枚巨刃
+  holy:      { r: 185, dmg: 46, tick: 0.32 }, // 墨域大扩 + 跳伤更频
+  shield:    { cd: 0.95, dmg: 82, maxR: 300, grow: 520, zapCd: 0.18, zapMult: 0.5, zapN: 3 }, // 钟域更大,环缘放电 3 敌
 };
 
 // --- 射击音效节流:最多 80ms 一次,避免爆音 ---
@@ -117,6 +140,13 @@ function nearestEnemy(g, x, y, maxR) {
   }
   return best;
 }
+
+// 墨雨索敌直方图(CONTRACT v2.1 §1):600px 内敌人按 12 方向扇区单次遍历分桶(O(n)),
+// 模块级复用,热路径零分配
+const HOLY_SEC = 12;
+const secCnt = new Int32Array(HOLY_SEC);
+const secSumX = new Float64Array(HOLY_SEC);
+const secSumY = new Float64Array(HOLY_SEC);
 
 // 闪电候选表(模块级复用,避免每次施法分配)
 const tmpList = [];
@@ -218,7 +248,7 @@ export function makeWeapon(id) {
 
       // ---- 进化形态:持续型(剑气阵 / 墨珠阵 / 墨域) ----
       if (this.evolved) {
-        if (this.id === 'knife') { // 万剑归宗:八剑环身高速绞杀
+        if (this.id === 'knife') { // 万剑归宗:八剑环身高速绞杀(数值随 v2.1 新剑气基准校准)
           const c = EVO.knife;
           orbitTick(this, dt, g, p, c.n, c.r * p.stats.areaMult, c.spin,
             c.dmg * p.stats.might, c.hitCd, c.kb, 0, 0);
@@ -358,7 +388,7 @@ export function makeWeapon(id) {
               dmg: c.dmg * p.stats.might, life: maxR / c.grow + 0.15, pierce: 9999, rot: 0,
               sprite: has('w_shield_evo') ? 'w_shield_evo' : 'w_shield',
               ring: 1, grow: c.grow, maxR, ringCol: '#b03a2e',
-              zapCd: c.zapCd, zapT: c.zapCd, zapMult: c.zapMult,
+              zapCd: c.zapCd, zapT: c.zapCd, zapMult: c.zapMult, zapN: c.zapN,
             });
             sfxShoot();
             return;
@@ -370,7 +400,7 @@ export function makeWeapon(id) {
       // ---- 普通形态 ----
       if (this.id === 'orb') { // 墨渊:持续环绕判定
         const b = WEAPONS.orb.base;
-        orbitTick(this, dt, g, p, b.n[L], b.r[L] * p.stats.areaMult, 3.4,
+        orbitTick(this, dt, g, p, b.n[L], b.r[L] * p.stats.areaMult, b.spin[L],
           b.dmg[L] * p.stats.might, 0.5, 70, 0, 0);
         return;
       }
@@ -378,18 +408,19 @@ export function makeWeapon(id) {
       this.timer -= dt;
       if (this.timer > 0) return;
       switch (this.id) {
-        case 'knife': { // 剑气:朝最近之敌,高等级扇形多连发
-          const e = nearestEnemy(g, p.x, p.y, 620);
-          if (!e) { this.timer = 0.25; return; }
+        case 'knife': { // 剑气(v2.1 §2):朝最近之敌一次扇出贯穿剑气浪——长射程高穿透,青焰柳叶
+          const e = nearestEnemy(g, p.x, p.y, 640);
+          const base = e ? Math.atan2(e.y - p.y, e.x - p.x) : (p.facing < 0 ? Math.PI : 0);
           this.timer = b.cd[L] * p.stats.cdMult;
-          const base = Math.atan2(e.y - p.y, e.x - p.x);
-          const n = b.n[L], sp = b.spread[L];
+          const n = b.n[L], fan = b.fan[L];
           for (let i = 0; i < n; i++) {
-            const a = base + (n > 1 ? (i / (n - 1) - 0.5) * sp : 0);
+            const a = base + (n > 1 ? (i / (n - 1) - 0.5) * fan : 0);
             g.addProjectile({
               x: p.x + Math.cos(a) * 14, y: p.y + Math.sin(a) * 14,
-              vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, r: 8,
-              dmg: b.dmg[L] * p.stats.might, life: 0.85, pierce: 0, rot: a, sprite: 'w_knife',
+              vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: 8,
+              dmg: b.dmg[L] * p.stats.might, life: b.life[L], pierce: b.pierce[L], rot: a,
+              sprite: 'w_knife', scale: 1 + L * 0.06, // 高等级剑气更凝练
+              trail: 1, trailT: 0, trailCol: '#5fb8c4', // 青焰残迹:剑气浪
             });
           }
           sfxShoot();
@@ -403,27 +434,28 @@ export function makeWeapon(id) {
           for (let i = 0; i < n; i++) {
             const a = Math.atan2(e.y - p.y, e.x - p.x) + (Math.random() - 0.5) * 0.5;
             g.addProjectile({
-              x: p.x, y: p.y, vx: Math.cos(a) * 330, vy: Math.sin(a) * 330, r: 8,
+              x: p.x, y: p.y, vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: 8,
               dmg: b.dmg[L] * p.stats.might, life: 2.2, pierce: 0, rot: a, sprite: 'w_bolt',
-              home: b.home[L], spd: 330,
+              home: b.home[L], spd: b.spd[L],
             });
           }
           sfxShoot();
           break;
         }
-        case 'bow': { // 贯日:高伤直线穿透箭
+        case 'bow': { // 贯日:高伤直线穿透箭(v2.2:穿透/射程/击退成长)
           const e = nearestEnemy(g, p.x, p.y, 700);
           const a = e ? Math.atan2(e.y - p.y, e.x - p.x) : (p.facing < 0 ? Math.PI : 0);
           this.timer = b.cd[L] * p.stats.cdMult;
           g.addProjectile({
-            x: p.x, y: p.y, vx: Math.cos(a) * 680, vy: Math.sin(a) * 680, r: 9,
-            dmg: b.dmg[L] * p.stats.might, life: 1.5, pierce: b.pierce[L], rot: a, sprite: 'w_arrow',
+            x: p.x, y: p.y, vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: 9,
+            dmg: b.dmg[L] * p.stats.might, life: b.life[L], pierce: b.pierce[L], rot: a, sprite: 'w_arrow',
+            kbMult: b.kb[L],
           });
           sfxShoot();
           break;
         }
-        case 'lightning': { // 五雷:随机劈落视野内敌人;击中墨湿之敌触发感电连锁
-          const R = 440, R2 = R * R;
+        case 'lightning': { // 五雷:劈落索敌半径内敌人(v2.2:落雷数/雷域逐级扩大,高等级自带连锁)
+          const R = b.R[L], R2 = R * R;
           tmpList.length = 0;
           const es = g.enemies;
           for (let i = 0; i < es.length; i++) {
@@ -440,28 +472,29 @@ export function makeWeapon(id) {
             if (e.dead) continue;
             const dmg = b.dmg[L] * p.stats.might;
             damageEnemy(g, e, dmg, KB0);
-            const st = e.status; // 感电连锁:五雷击中湿身之敌,电弧跳跃
+            const st = e.status; // 感电连锁:五雷击中湿身之敌,电弧跳跃更远更强(墨雨协同)
             if (st && st.wet > 0) chainLightning(g, e, dmg * 0.6, 3, 140);
+            else if (b.chainN[L] > 0) chainLightning(g, e, dmg * 0.5, b.chainN[L], b.chainR); // v2.2:高等级自带连锁
             g.addZone({ x: e.x, y: e.y, r: 0, life: 0.28, maxLife: 0.28, tickDmg: 0, sprite: 'lightning_v' });
             g.addParticles(e.x, e.y, { n: 5, color: '#7df9ff', speed: 120, life: 0.3, size: 3 });
           }
           sfxShoot();
           break;
         }
-        case 'fireball': { // 焚天:命中或燃尽时爆炸 AoE,施加灼烧
+        case 'fireball': { // 焚天:命中或燃尽时爆炸 AoE,施加灼烧(v2.2:爆炸半径/灼烧持续/弹速成长)
           const e = nearestEnemy(g, p.x, p.y, 620);
           const a = e ? Math.atan2(e.y - p.y, e.x - p.x) : Math.random() * TAU;
           this.timer = b.cd[L] * p.stats.cdMult;
           const dmg = b.dmg[L] * p.stats.might;
           g.addProjectile({
-            x: p.x, y: p.y, vx: Math.cos(a) * 300, vy: Math.sin(a) * 300, r: 10,
+            x: p.x, y: p.y, vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: 10,
             dmg, life: 1.8, pierce: 0, rot: a, sprite: 'w_fireball', spin: 6,
-            boomR: b.boomR[L] * p.stats.areaMult, boomDmg: dmg * 0.8, burnHit: 3,
+            boomR: b.boomR[L] * p.stats.areaMult, boomDmg: dmg * 0.8, burnHit: b.burnHit[L],
           });
           sfxShoot();
           break;
         }
-        case 'boomerang': { // 回风:飞出后折返,往返都能伤
+        case 'boomerang': { // 回风:飞出后折返,往返都能伤(v2.2:镖数/镖体/射程成长)
           const e = nearestEnemy(g, p.x, p.y, 640);
           if (!e) { this.timer = 0.25; return; }
           this.timer = b.cd[L] * p.stats.cdMult;
@@ -470,7 +503,7 @@ export function makeWeapon(id) {
           for (let i = 0; i < n; i++) {
             const a = aim + (i - (n - 1) / 2) * 0.32;
             g.addProjectile({
-              x: p.x, y: p.y, vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: 11,
+              x: p.x, y: p.y, vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: b.r[L],
               dmg: b.dmg[L] * p.stats.might, life: 4, pierce: 9999, rot: a, sprite: 'w_boomerang',
               bm: 1, spin: 14,
             });
@@ -478,13 +511,38 @@ export function makeWeapon(id) {
           sfxShoot();
           break;
         }
-        case 'holy': { // 墨雨:泼墨落地成域,持续蚀敌并施加墨湿
+        case 'holy': { // 墨雨(v2.1 §1):朝怪物最多的方向落瓶
+          // 600px 内敌人按 12 方向扇区单次遍历分桶(O(n)),取敌最多的扇区,
+          // 在其质心附近落瓶(距玩家 180~380px 环带);无敌人才回退随机方向
           this.timer = b.cd[L] * p.stats.cdMult;
-          const n = b.n[L];
+          secCnt.fill(0); secSumX.fill(0); secSumY.fill(0);
+          const es = g.enemies, R2 = 600 * 600, px = p.x, py = p.y;
+          for (let i = 0; i < es.length; i++) {
+            const e = es[i];
+            if (e.dead) continue;
+            const dx = e.x - px, dy = e.y - py, d2 = dx * dx + dy * dy;
+            if (d2 > R2) continue;
+            let s = ((Math.atan2(dy, dx) + Math.PI) * (HOLY_SEC / TAU)) | 0;
+            if (s >= HOLY_SEC) s = HOLY_SEC - 1; // atan2 边界(±PI)浮点回绕保护
+            secCnt[s]++; secSumX[s] += dx; secSumY[s] += dy;
+          }
+          let bi = -1, bn = 0;
+          for (let s = 0; s < HOLY_SEC; s++) if (secCnt[s] > bn) { bn = secCnt[s]; bi = s; }
+          const n = b.n[L], T = 0.55;
           for (let i = 0; i < n; i++) {
-            const a = Math.random() * TAU, dist = 90 + Math.random() * 150, T = 0.55;
+            let dx, dy;
+            if (bi >= 0) { // 最密扇区质心附近 + 小幅散布,钳制 180~380px 环带
+              dx = secSumX[bi] / bn + (Math.random() - 0.5) * 90;
+              dy = secSumY[bi] / bn + (Math.random() - 0.5) * 90;
+              const dd = Math.sqrt(dx * dx + dy * dy) || 1;
+              const cl = dd < 180 ? 180 / dd : dd > 380 ? 380 / dd : 1;
+              dx *= cl; dy *= cl;
+            } else { // 视野无敌人:回退随机方向
+              const a = Math.random() * TAU, dist = 90 + Math.random() * 150;
+              dx = Math.cos(a) * dist; dy = Math.sin(a) * dist;
+            }
             g.addProjectile({
-              x: p.x, y: p.y, vx: Math.cos(a) * dist / T, vy: Math.sin(a) * dist / T, r: 8,
+              x: px, y: py, vx: dx / T, vy: dy / T, r: 8,
               dmg: 0, life: T, pierce: 0, rot: 0, sprite: 'w_flask', ghost: 1, spin: 9,
               zone: {
                 x: 0, y: 0, r: b.r[L] * p.stats.areaMult, life: b.dur[L], maxLife: b.dur[L],
@@ -496,13 +554,13 @@ export function makeWeapon(id) {
           sfxShoot();
           break;
         }
-        case 'shield': { // 金钟罩:快速扩张的冲击环弹体
+        case 'shield': { // 金钟罩:快速扩张的冲击环弹体(v2.2:钟域半径/频率/击退成长)
           this.timer = b.cd[L] * p.stats.cdMult;
           const maxR = b.maxR[L] * p.stats.areaMult;
           g.addProjectile({
             x: p.x, y: p.y, vx: 0, vy: 0, r: 16,
             dmg: b.dmg[L] * p.stats.might, life: maxR / 430 + 0.15, pierce: 9999, rot: 0,
-            sprite: 'w_shield', ring: 1, grow: 430, maxR,
+            sprite: 'w_shield', ring: 1, grow: 430, maxR, kbMult: b.kb[L],
           });
           sfxShoot();
           break;

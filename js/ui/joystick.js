@@ -1,13 +1,13 @@
-// ===== 🖥️ UI agent 名下:动态虚拟摇杆(多点触控安全 / 死区 / 拖边跟随) =====
+// ===== 🖥️ UI agent 名下:固定底盘虚拟摇杆(触点即中心、不跟手漂移 / 12px 启动死区 / 单位向量全速) =====
 import { Input } from '../core/input.js';
 
 export const Joystick = {
   g: null, wrap: null, base: null, knob: null,
   id: null,            // 当前占用的 touch identifier(多点触控安全)
-  ox: 0, oy: 0,        // 摇杆中心(拖边时会跟随移动)
-  R: 48,               // 最大半径
-  DEAD: 0.12,          // 死区
-  vector: { x: 0, y: 0, active: false },
+  ox: 0, oy: 0,        // 摇杆中心 = 按下触点(固定不动,move 阶段不再漂移)
+  R: 48,               // 底盘视觉半径(knob 视觉 clamp 到此值)
+  DEAD: 12,            // 启动死区(像素):超过即该方向全速,否则视为未推动
+  vector: { x: 0, y: 0, active: false }, // 输出:单位长度方向向量(active=false 时为 0,0)
   _hideT: 0,
 
   init(g) {
@@ -48,19 +48,17 @@ export const Joystick = {
     if (this.id === null) return;
     for (const t of e.changedTouches) {
       if (t.identifier !== this.id) continue;
-      let dx = t.clientX - this.ox, dy = t.clientY - this.oy;
+      const dx = t.clientX - this.ox, dy = t.clientY - this.oy;
       const m = Math.hypot(dx, dy);
-      if (m > this.R) {
-        // 拖边体验:超出最大半径后摇杆中心跟随手指, knob 吸在边缘
-        const k = (m - this.R) / m;
-        this.ox += dx * k; this.oy += dy * k;
-        dx -= dx * k; dy -= dy * k;
-        this._placeBase();
+      this._renderKnob(dx, dy); // knob 仅做视觉指向,始终 clamp 在固定底盘半径内
+      if (m > this.DEAD) {
+        // 固定底盘 + 全速:输出向量恒为单位长度,任何方向、任何距离都无内圈减速
+        this.vector.x = dx / m; this.vector.y = dy / m;
+        this.vector.active = true;
+      } else {
+        this.vector.x = 0; this.vector.y = 0;
+        this.vector.active = false;
       }
-      this._renderKnob(dx, dy);
-      this.vector.x = dx / this.R;
-      this.vector.y = dy / this.R;
-      this.vector.active = Math.hypot(this.vector.x, this.vector.y) > this.DEAD;
       Input.setTouch(this.vector.x, this.vector.y, this.vector.active);
       e.preventDefault();
     }
@@ -86,7 +84,11 @@ export const Joystick = {
     this.base.style.left = (this.ox - hw) + 'px';
     this.base.style.top = (this.oy - hw) + 'px';
   },
-  _renderKnob(dx, dy) { this.knob.style.transform = `translate(${dx}px, ${dy}px)`; },
+  _renderKnob(dx, dy) {
+    const m = Math.hypot(dx, dy);
+    const k = m > this.R ? this.R / m : 1; // 视觉 clamp 到 R;逻辑只看 12px 死区,与视觉阈值解耦
+    this.knob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+  },
 
   _showAt() {
     clearTimeout(this._hideT);

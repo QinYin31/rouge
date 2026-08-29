@@ -161,14 +161,14 @@ canvas, img { image-rendering: pixelated; image-rendering: crisp-edges; }
 /* ---------- 冲刺按钮:右下圆形水墨印章 ---------- */
 #btn-dash {
   position: absolute;
-  right: 18px;
-  bottom: calc(18px + env(safe-area-inset-bottom));
-  width: 64px; height: 64px;
+  right: 20px;
+  bottom: calc(34px + env(safe-area-inset-bottom));
+  width: 76px; height: 76px;
   border-radius: 50%;
   border: 3px solid var(--cinnabar);
   background: radial-gradient(circle at 38% 30%, var(--paper-hi), var(--paper-dk));
   color: var(--cinnabar);
-  font: inherit; font-size: 26px; font-weight: 700; line-height: 1;
+  font: inherit; font-size: 30px; font-weight: 700; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   box-shadow:
@@ -182,6 +182,36 @@ canvas, img { image-rendering: pixelated; image-rendering: crisp-edges; }
   transition: transform .06s steps(2), opacity .15s, filter .15s;
 }
 #btn-dash:active { transform: scale(.9); filter: brightness(.94); }
+/* 冷却进度环(JS 写 conic-gradient;就绪时隐藏) */
+#btn-dash .dash-ring {
+  position: absolute; inset: -2px; border-radius: 50%;
+  pointer-events: none;
+}
+#btn-dash .dash-glyph { position: relative; }
+/* 就绪呼吸辉光(提示可按) */
+@keyframes dashReadyPulse {
+  0%, 100% { box-shadow:
+    inset 0 0 0 2px rgba(236, 229, 211, .9),
+    inset 0 0 0 4px var(--cinnabar-hi),
+    inset 0 0 14px rgba(176, 58, 46, .25),
+    3px 3px 0 rgba(43, 43, 43, .3),
+    0 0 0 0 rgba(176, 58, 46, 0); }
+  50% { box-shadow:
+    inset 0 0 0 2px rgba(236, 229, 211, .9),
+    inset 0 0 0 4px var(--cinnabar-hi),
+    inset 0 0 14px rgba(176, 58, 46, .25),
+    3px 3px 0 rgba(43, 43, 43, .3),
+    0 0 14px 3px rgba(176, 58, 46, .38); }
+}
+#btn-dash:not(.cooldown) { animation: dashReadyPulse 1.6s ease-in-out infinite; }
+/* 桌面(精确指针)缩小避让,拇指优化只给触屏 */
+@media (pointer: fine) {
+  #btn-dash {
+    width: 48px; height: 48px;
+    right: 16px; bottom: 16px;
+    font-size: 20px;
+  }
+}
 /* 冷却中(HUD/主流程切 .cooldown):印泥褪色 */
 #btn-dash.cooldown {
   opacity: .45;

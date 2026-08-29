@@ -1,6 +1,11 @@
-// ===== ⚔️ 战斗agent 名下:升级池与商店数据(水墨江湖版 + 进化选项) =====
+// ===== ⚔️ 战斗agent 名下:升级池与商店数据(水墨江湖版 + 进化选项 + 组合推荐) =====
 // rollChoices 只读不改等级;applyChoice 落实加成(被动写 p.bonuses 后 p.recalc())。
 // 进化(CONTRACT v2):武器 Lv5 + 绑定被动 Lv5 → 金色 evolve 选项必占一档,每武器仅一次。
+// 组合推荐(CONTRACT v2.2 §8):输出项可带 rec 字符串标记——
+//   ① '可进化·绝学名':选项是满级未进化武器的绑定心法;或新武器/武器升级的绑定心法已 ≥4 级
+//   ② '联动·阴阳相激':已有焚天系,选项含墨雨/墨染乾坤
+//   ③ '联动·感电连锁':已有五雷↔墨雨系任一侧,选项为另一侧
+//   rec 项排序置前;evolve 卡依旧最高优先(与 rec 共存时 evolve 在前);抽取概率逻辑不变。
 import { WEAPONS, WEAPON_ORDER, MAX_WEAPONS, makeWeapon } from './weapons.js';
 import { combatState } from './enemies.js';
 import { Bus } from '../core/engine.js';
@@ -52,6 +57,36 @@ function goldChoice(amount, big) {
 function healChoice(p) {
   return { kind: 'heal', id: 'heal', name: '馒头', desc: `回复 ${45} 生命`, icon: 'meat', heal: 45,
     _skip: p.hp >= p.stats.maxHp - 0.5 };
+}
+
+// ---- CONTRACT v2.2 §8:组合技推荐标记 ----
+// 判定单个选项的 rec 文案(无推荐返回 null);可进化优先于联动。
+// 只读 p.weapons 与 g.passiveLv + WEAPONS[id].evo 绑定关系,不改抽取概率。
+function recFor(g, c, plv) {
+  const p = g.player;
+  const own = id => { for (const w of p.weapons) if (w.id === id) return true; return false; };
+  if (c.kind === 'passive') { // ① 满级未进化武器的绑定心法 → 即将可进化
+    for (const w of p.weapons) {
+      const d = WEAPONS[w.id];
+      if (w.lv >= d.maxLv && !w.evolved && d.evo && d.evo.passive === c.id) return '可进化·' + d.evo.evoName;
+    }
+    return null;
+  }
+  if (c.kind === 'newWeapon' || c.kind === 'weapon') { // ② 绑定心法已 ≥4 级 → 取此武器即可进化
+    const d = WEAPONS[c.id];
+    if (d && d.evo && (plv[d.evo.passive] || 0) >= 4) return '可进化·' + d.evo.evoName;
+    // ③ 协同向:焚天↔墨雨系(阴阳相激)、五雷↔墨雨系(感电连锁)
+    if (c.id === 'holy') {
+      if (own('fireball')) return '联动·阴阳相激';
+      if (own('lightning')) return '联动·感电连锁';
+    } else if (c.id === 'lightning' && own('holy')) return '联动·感电连锁';
+    return null;
+  }
+  if (c.kind === 'evolve' && c.id === 'holy') { // 墨染乾坤进化卡与协同标记共存(evolve 排序仍在前)
+    if (own('fireball')) return '联动·阴阳相激';
+    if (own('lightning')) return '联动·感电连锁';
+  }
+  return null;
 }
 
 // 加权不重复抽一项(从 pool 中 splice 移除)
@@ -117,6 +152,15 @@ export function rollChoices(g) {
     out.push(fills[i]);
   }
   while (out.length < 3) out.push(goldChoice(25));
+  // rec 标记 + 排序(v2.2 §8):evolve 卡仍最前,rec 项次之;稳定排序,同档保持抽取顺序
+  for (let i = 0; i < out.length; i++) {
+    const r = recFor(g, out[i], plv);
+    if (r) out[i].rec = r;
+  }
+  if (out.some(c => c.rec)) {
+    const rank = c => (c.kind === 'evolve' ? 0 : c.rec ? 1 : 2);
+    out.sort((a, b) => rank(a) - rank(b));
+  }
   return out;
 }
 

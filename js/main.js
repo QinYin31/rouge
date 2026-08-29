@@ -14,7 +14,7 @@ import { initBoss } from './game/boss.js';
 import { initPickups } from './game/pickups.js';
 import { rollChoices, applyChoice, applyShopBonuses, SHOP_UPGRADES } from './game/upgrades.js';
 import { makeWeapon } from './game/weapons.js';
-import { HUD } from './ui/hud.js';
+import { HUD } from './ui/hud.js?r=8';
 import { Screens } from './ui/screens.js';
 import { Joystick } from './ui/joystick.js';
 
@@ -63,19 +63,22 @@ Bus.on('boss-spawn', ({ name }) => {
   engine.spawnText(engine.player.x, engine.player.y - 60, name + ' 出现!', { color: '#e43b44', size: 24, life: 2 });
 });
 
-// ---------- 升级三选一 ----------
+// ---------- 升级三选一(含 1 次免费刷新) ----------
 Bus.on('levelup', () => {
   SFX.play('levelup');
   engine.pause();
-  showLevelUpOnce();
+  showLevelUpOnce(false);
 });
-function showLevelUpOnce() {
+function showLevelUpOnce(rerolled) {
   const choices = rollChoices(engine);
   Screens.showLevelUp(choices, c => {
     applyChoice(engine, c);
     engine.player.pendingLevels--;
-    if (engine.player.pendingLevels > 0) showLevelUpOnce();
+    if (engine.player.pendingLevels > 0) showLevelUpOnce(false);
     else { Screens.hide(); engine.resume(); }
+  }, () => {
+    if (rerolled) return; // 每次升级仅 1 次刷新
+    showLevelUpOnce(true);
   });
 }
 
