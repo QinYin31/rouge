@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d17">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>像素幸存者</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <!-- HUD(局内) -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-bars">
+        <div class="bar hp"><div id="hud-hp" class="fill"></div><span id="hud-hp-text" class="bar-text">100/100</span></div>
+        <div class="bar xp"><div id="hud-xp" class="fill"></div></div>
+      </div>
+      <div class="hud-right">
+        <div id="hud-timer" class="timer">00:00</div>
+        <div class="hud-mini"><span id="hud-kills">💀 0</span><span id="hud-gold">🪙 0</span><span id="hud-level">Lv.1</span></div>
+      </div>
+      <button id="btn-pause" class="btn icon-btn" aria-label="暂停">⏸</button>
+    </div>
+    <div id="hud-boss" class="hidden">
+      <div class="bar boss"><div id="hud-boss-fill" class="fill"></div><span id="hud-boss-name" class="bar-text"></span></div>
+    </div>
+    <div id="hud-weapons"></div>
+  </div>
+
+  <!-- 虚拟摇杆 -->
+  <div id="joystick" class="hidden"><div id="joy-base"><div id="joy-knob"></div></div></div>
+
+  <div id="vignette" class="hidden"></div>
+
+  <!-- 全部屏幕(DOM 由 js/ui/screens.js 生成/填充) -->
+  <div id="screens">
+    <div id="screen-menu" class="screen">
+      <div class="panel menu-panel">
+        <h1 class="game-title">像素<br>幸存者</h1>
+        <p id="menu-stats" class="menu-stats"></p>
+        <div class="menu-btns">
+          <button id="btn-play" class="btn primary big">开 始 游 戏</button>
+          <button id="btn-shop" class="btn big">永久强化</button>
+        </div>
+        <div id="menu-toggles" class="toggles"></div>
+      </div>
+    </div>
+
+    <div id="screen-select" class="screen hidden">
+      <div class="panel">
+        <h2>选择角色</h2>
+        <div id="char-list" class="card-list"></div>
+        <button id="btn-select-back" class="btn">返 回</button>
+      </div>
+    </div>
+
+    <div id="screen-shop" class="screen hidden">
+      <div class="panel">
+        <h2>永久强化</h2>
+        <div id="shop-gold" class="shop-gold">🪙 0</div>
+        <div id="shop-list" class="shop-list"></div>
+        <button id="btn-shop-back" class="btn">返 回</button>
+      </div>
+    </div>
+
+    <div id="screen-levelup" class="screen hidden">
+      <div class="panel small levelup-panel">
+        <h2 class="levelup-title">⬆ 升级!选择一项</h2>
+        <div id="levelup-cards" class="card-list"></div>
+      </div>
+    </div>
+
+    <div id="screen-pause" class="screen hidden">
+      <div class="panel small">
+        <h2>已暂停</h2>
+        <div class="menu-btns">
+          <button id="btn-resume" class="btn primary big">继续游戏</button>
+          <button id="btn-quit" class="btn big">放弃本局</button>
+        </div>
+        <div id="pause-toggles" class="toggles"></div>
+      </div>
+    </div>
+
+    <div id="screen-over" class="screen hidden">
+      <div class="panel small">
+        <h2 id="over-title">游戏结束</h2>
+        <div id="over-stats" class="over-stats"></div>
+        <div class="menu-btns">
+          <button id="btn-again" class="btn primary big">再来一局</button>
+          <button id="btn-endless" class="btn big hidden">进入无尽</button>
+          <button id="btn-menu" class="btn big">回主菜单</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
