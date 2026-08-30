@@ -1,23 +1,23 @@
 // 《像素幸存者》主入口:装配全部模块、场景流转
-import { Engine, Bus } from './core/engine.js?v=11';
-import { Camera } from './core/camera.js?v=11';
-import { Input } from './core/input.js?v=11';
-import { Save } from './core/save.js?v=11';
-import { SFX } from './core/audio.js?v=11';
-import { bake } from './sprites.js?v=11';
-import { Player, CHARACTERS } from './game/player.js?v=11';
-import { initMap } from './game/map.js?v=11';
-import { initParticles } from './game/particles.js?v=11';
-import { initCombat } from './game/enemies.js?v=11';
-import { initSpawner, setEndless } from './game/spawner.js?v=11';
-import { initBoss } from './game/boss.js?v=11';
-import { initPickups } from './game/pickups.js?v=11';
-import { rollChoices, applyChoice, applyShopBonuses, SHOP_UPGRADES } from './game/upgrades.js?v=11';
-import { makeWeapon } from './game/weapons.js?v=11';
+import { Engine, Bus } from './core/engine.js?v=17';
+import { Camera } from './core/camera.js?v=17';
+import { Input } from './core/input.js?v=17';
+import { Save } from './core/save.js?v=17';
+import { SFX } from './core/audio.js?v=17';
+import { bake } from './sprites.js?v=17';
+import { Player, CHARACTERS } from './game/player.js?v=17';
+import { initMap } from './game/map.js?v=17';
+import { initParticles } from './game/particles.js?v=17';
+import { initCombat } from './game/enemies.js?v=17';
+import { initSpawner, setEndless } from './game/spawner.js?v=17';
+import { initBoss } from './game/boss.js?v=17';
+import { initPickups } from './game/pickups.js?v=17';
+import { rollChoices, applyChoice, applyShopBonuses, SHOP_UPGRADES } from './game/upgrades.js?v=17';
+import { makeWeapon } from './game/weapons.js?v=17';
 import { HUD } from './ui/hud.js?r=8';
-import { Screens } from './ui/screens.js?v=11';
-import { Joystick } from './ui/joystick.js?v=11';
-import { Codex } from './ui/codex.js?v=11';
+import { Screens } from './ui/screens.js?v=17';
+import { Joystick } from './ui/joystick.js?v=17';
+import { Codex } from './ui/codex.js?v=17';
 
 const canvas = document.getElementById('game');
 const engine = new Engine(canvas);
@@ -218,7 +218,7 @@ engine.start();
 
 // 调试:?cheat 快速获得经验 ?fast 时间加速(测试升级/Boss/通关流程用)
 if (location.search.includes('dev')) {
-  window.addEventListener('error', e => {
+  function trapErr(t) {
     let d = document.getElementById('err-trap');
     if (!d) {
       d = document.createElement('div');
@@ -226,8 +226,17 @@ if (location.search.includes('dev')) {
       d.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99999;background:rgba(60,0,0,.92);color:#fff;font-size:11px;max-width:90vw;white-space:pre-wrap;padding:4px 6px;';
       document.body.appendChild(d);
     }
-    d.textContent += 'ERR: ' + e.message + ' @line' + e.lineno + '\n';
+    d.textContent += t + '\n';
+    if (d.textContent.length > 4000) d.textContent = d.textContent.slice(-4000);
+  }
+  window.addEventListener('error', e => {
+    trapErr('ERR: ' + e.message + ' @line' + e.lineno);
   });
+  const oe = console.error;
+  console.error = (...a) => {
+    oe(...a);
+    try { trapErr('CERR: ' + a.map(x => (x && x.stack) ? x.stack.slice(0, 260) : String(x)).join(' ').slice(0, 400)); } catch (e2) {}
+  };
 }
 if (location.search.includes('cheat')) {
   setInterval(() => {

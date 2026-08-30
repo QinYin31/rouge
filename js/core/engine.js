@@ -85,6 +85,10 @@ export class Engine {
     this.time = 0; this.paused = 0; this.boss = null;
     this.stats = { kills: 0, gold: 0, level: 1, dmg: 0 };
     for (const fn of this.resets) fn();
+    // 防冻结护栏:每局开始清零错误计数,被自动停用的函数恢复运行
+    const lists = [this.updaters, this.always || []];
+    for (const l of LAYERS) lists.push(this.drawers[l]);
+    for (const list of lists) for (const fn of list) fn._errs = 0;
   }
 
   start() { if (!this.running) { this.running = true; this.lastT = performance.now(); requestAnimationFrame(this._bind); } }

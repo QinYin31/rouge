@@ -5,11 +5,11 @@
 // 数据:进化条目由 WEAPONS[id].evo 自动生成(9 条);联动条目静态定义(3 条)。
 // 进化门槛(CONTRACT v2.3):武器满级 + 绑定心法 3 级。
 // 性能红线:RAF 仅在图鉴可见时运行,关闭立即 cancelAnimationFrame,不残留循环。
-import { WEAPONS, WEAPON_ORDER } from '../game/weapons.js?v=11';
-import { PASSIVES } from '../game/upgrades.js?v=11';
-import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=11';
-import { Screens } from './screens.js?v=11';
-import { SFX } from '../core/audio.js?v=11';
+import { WEAPONS, WEAPON_ORDER } from '../game/weapons.js?v=17';
+import { PASSIVES } from '../game/upgrades.js?v=17';
+import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=17';
+import { Screens } from './screens.js?v=17';
+import { SFX } from '../core/audio.js?v=17';
 
 const TAU = Math.PI * 2;
 const W = 480, H = 270;        // 演示舞台逻辑分辨率(16:9,实际缓冲按容器宽度 × dpr)

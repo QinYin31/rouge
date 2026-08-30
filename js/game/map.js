@@ -1,5 +1,5 @@
 // 无限地面:分块离屏缓存(256px chunk + 16px 出血),每块只烘焙一次
-import { drawSprite } from '../sprites.js?v=11';
+import { drawSprite } from '../sprites.js?v=17';
 
 const TILE = 32, CHUNK = 256, BLEED = 16; // 8×8 tile 一块;精灵 48px 出格,烘焙留出血防接缝
 const chunks = new Map();

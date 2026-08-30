@@ -1,8 +1,8 @@
 // ===== 🖥️ UI agent 名下:全部屏幕(菜单/选人/商店/升级三选一/暂停/结算) =====
-import { CHARACTERS } from '../game/player.js?v=11';
-import { SHOP_UPGRADES } from '../game/upgrades.js?v=11';
-import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=11';
-import { SFX } from '../core/audio.js?v=11';
+import { CHARACTERS } from '../game/player.js?v=17';
+import { SHOP_UPGRADES } from '../game/upgrades.js?v=17';
+import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=17';
+import { SFX } from '../core/audio.js?v=17';
 
 const SCREENS = ['screen-menu', 'screen-select', 'screen-shop', 'screen-levelup', 'screen-pause', 'screen-over'];
 const TOGGLE_DEFS = [['sfx', '音效'], ['music', '音乐'], ['shake', '震动'], ['hfr', '高刷120帧'], ['lowgfx', '流畅画质'], ['fpsShow', '帧率显示']];

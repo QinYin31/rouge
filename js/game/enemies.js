@@ -3,8 +3,8 @@
 //       伤害唯一入口 damageEnemy(数字/暴击/击退/闪白/死亡掉落)。
 // 联动(CONTRACT v2):e.status={burn,wet} 秒数;焚天命中→灼烧,墨雨/墨染→墨湿;
 //       burn+wet 并存→蒸汽爆发(90px AoE+白雾+震屏);五雷击中湿敌→感电连锁;灼烧之敌死亡→殉焰火区。
-import { drawSprite } from '../sprites.js?v=11';
-import { Bus } from '../core/engine.js?v=11';
+import { drawSprite } from '../sprites.js?v=17';
+import { Bus } from '../core/engine.js?v=17';
 
 // 战斗模块共享的运行状态:main 仅在 startRun 中调用 applyShopBonuses(upgrades.js),
 // 以此作为"本局开始"信号;engine.reset 时由各战斗模块的 addReset 复位,

@@ -1,6 +1,6 @@
 // ===== 拾取物:宝石/金币/肉/磁铁/宝箱(带视口剔除与数量上限合并,保流畅) =====
-import { drawSprite } from '../sprites.js?v=11';
-import { Bus } from '../core/engine.js?v=11';
+import { drawSprite } from '../sprites.js?v=17';
+import { Bus } from '../core/engine.js?v=17';
 
 const MAX_PICKUPS = 320; // 超限时最旧宝石并入相邻宝石(防后期上千掉落物拖垮绘制)
 
@@ -46,8 +46,10 @@ export function initPickups(g) {
   };
 
   g.addUpdater(dt => {
+    window.__pickupTicks = (window.__pickupTicks || 0) + 1; // 探针:更新器是否在跑
     mergeOldest();
     const p = g.player;
+    if (!p) return; // 主菜单态:player 尚未创建
     const mag = p.stats.magnet, mag2 = mag * mag;
     for (let i = g.pickups.length - 1; i >= 0; i--) {
       const k = g.pickups[i];
@@ -88,6 +90,30 @@ export function initPickups(g) {
       }
     }
   });
+
+  // ?dev 调试钩子:按 G 把最多8颗宝石传送到脚下;标题实时显示拾取状态
+  if (location.search.includes('dev')) {
+    window.addEventListener('keydown', e => {
+      if (e.code !== 'KeyG') return;
+      let moved = 0;
+      for (const k of g.pickups) {
+        if (k.kind !== 'gem' || moved >= 8) continue;
+        k.x = g.player.x + (Math.random() - 0.5) * 24;
+        k.y = g.player.y + (Math.random() - 0.5) * 24;
+        moved++;
+      }
+    });
+    setInterval(() => {
+      if (!g.player) return;
+      let near = 1e9, cnt = 0;
+      for (const k of g.pickups) {
+        cnt++;
+        const d = Math.hypot(k.x - g.player.x, k.y - g.player.y);
+        if (d < near) near = d;
+      }
+      document.title = `拾取探针 宝石${cnt}颗 最近${Math.round(near)}px xp=${Math.round(g.player.xp)} Lv${g.player.level} 更新器帧${window.__pickupTicks || 0}`;
+    }, 500);
+  }
 
   g.addDrawer('under', ctx => {
     for (const k of g.pickups) {

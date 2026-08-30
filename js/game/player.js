@@ -1,7 +1,7 @@
 // 玩家:属性/成长/移动/受伤/经验
-import { Input } from '../core/input.js?v=11';
-import { Bus } from '../core/engine.js?v=11';
-import { drawSprite } from '../sprites.js?v=11';
+import { Input } from '../core/input.js?v=17';
+import { Bus } from '../core/engine.js?v=17';
+import { drawSprite } from '../sprites.js?v=17';
 
 export const CHARACTERS = {
   knight: {

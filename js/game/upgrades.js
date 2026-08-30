@@ -6,10 +6,10 @@
 //   ② '联动·阴阳相激':已有焚天系,选项含墨雨/墨染乾坤
 //   ③ '联动·感电连锁':已有五雷↔墨雨系任一侧,选项为另一侧
 //   rec 项排序置前;evolve 卡依旧最高优先(与 rec 共存时 evolve 在前);抽取概率逻辑不变。
-import { WEAPONS, WEAPON_ORDER, MAX_WEAPONS, makeWeapon } from './weapons.js?v=11';
-import { combatState } from './enemies.js?v=11';
-import { Bus } from '../core/engine.js?v=11';
-import { Save } from '../core/save.js?v=11';
+import { WEAPONS, WEAPON_ORDER, MAX_WEAPONS, makeWeapon } from './weapons.js?v=17';
+import { combatState } from './enemies.js?v=17';
+import { Bus } from '../core/engine.js?v=17';
+import { Save } from '../core/save.js?v=17';
 
 // 9 种局内被动(权重方向与商店一致,数值更强);crit 暴击之眼只进升级池,不进商店
 export const PASSIVES = {

@@ -1,5 +1,5 @@
 // 粒子与飘字(对象池)
-import { Bus } from '../core/engine.js?v=11';
+import { Bus } from '../core/engine.js?v=17';
 
 const isMobile = window.innerWidth < 600;
 const MAX_P = isMobile ? 320 : 700, MAX_T = 90; // 移动端减预算保流畅
