@@ -53,16 +53,13 @@ export function initPickups(g) {
       const k = g.pickups[i];
       k.t += dt;
       const dx = p.x - k.x, dy = p.y - k.y, d2 = dx * dx + dy * dy;
-      const scan = Math.max(mag, 260) + 40;
-      if (d2 > scan * scan) continue; // 视野外:跳过
+      if (d2 > mag2 + 900) continue; // 远离磁吸范围:跳过
       const d = Math.sqrt(d2) || 1;
-      if (d < mag) { // 磁吸(强力吸取)
+      if (d < mag) { // 磁吸
         const v = 260 + (mag - d) * 3;
         k.x += dx / d * v * dt; k.y += dy / d * v * dt;
-      } else if (k.kind === 'gem' && d < 260) { // 远程缓漂:宝石主动飘向玩家
-        k.x += dx / d * 70 * dt; k.y += dy / d * 70 * dt;
       }
-      if (d < 30) { // 拾取
+      if (d < 18) { // 拾取
         if (k.kind === 'gem') p.addXp(k.xp);
         else if (k.kind === 'coin') { g.stats.gold += Math.round(k.gold * p.stats.goldMult); }
         else if (k.kind === 'meat') {

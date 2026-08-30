@@ -119,8 +119,7 @@ function endRun(victory) {
     endless: victory,
     onAgain: () => startRun(lastChar),
     onEndless: () => { setEndless(engine); inRun = true; HUD.show(true); Screens.hide(); engine.resume(); },
-    onMenu: () => { engine.reset(); if (location.search.includes('dev')) document.title = 'S:' + JSON.stringify(Save.data.settings);
-showMenu(); },
+    onMenu: () => { engine.reset(); showMenu(); },
   });
 }
 
@@ -213,6 +212,8 @@ engine.setHfr(!!Save.data.settings.hfr);
 engine.setDprCap(Save.data.settings.lowgfx ? 1 : 2);
 engine.setFpsShow(!!Save.data.settings.fpsShow);
 showMenu();
+// 屏幕刷新率检测完成后,若仍在主菜单则重建一次,让「高刷模式(屏幕xxHz)」标注出现
+setTimeout(() => { if (!inRun && Screens.current === 'screen-menu') showMenu(); }, 1700);
 engine.start();
 
 // 调试:?cheat 快速获得经验 ?fast 时间加速(测试升级/Boss/通关流程用)

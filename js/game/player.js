@@ -44,7 +44,7 @@ export class Player {
       might: c.might * b.mightMult,
       cdMult: this.charBonus.cdMult * b.cdMult,
       speed: c.speed * b.speedMult,
-      magnet: 95 + this.charBonus.magnetFlat + b.magnetFlat,
+      magnet: 60 + this.charBonus.magnetFlat + b.magnetFlat,
       xpMult: b.xpMult, goldMult: b.goldMult,
       armor: c.armor + b.armorFlat,
       areaMult: b.areaMult,

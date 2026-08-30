@@ -103,16 +103,21 @@ export class Engine {
       }
     }
     if (this.always) this._runList(this.always, dt, 'always');
-    // FPS 统计(0.5s 窗口)
+    // FPS 统计(0.5s 窗口)+ 屏幕刷新率检测(窗口内最快帧间隔)
     this._fpsAcc = (this._fpsAcc || 0) + dt; this._fpsN = (this._fpsN || 0) + 1;
-    if (this._fpsAcc >= 0.5) { this.fps = Math.round(this._fpsN / this._fpsAcc); this._fpsAcc = 0; this._fpsN = 0; }
+    this._dtMin = Math.min(this._dtMin || 1e9, dt * 1000);
+    if (this._fpsAcc >= 0.5) {
+      this.fps = Math.round(this._fpsN / this._fpsAcc);
+      this.displayHz = Math.max(30, Math.min(240, Math.round(1000 / Math.max(this._dtMin, 1))));
+      this._fpsAcc = 0; this._fpsN = 0; this._dtMin = 1e9;
+    }
     this._draw();
     if (this.fpsShow) {
       const c = this.ctx;
       c.font = 'bold 12px "Microsoft YaHei", sans-serif';
       c.textAlign = 'right';
       c.fillStyle = 'rgba(43,43,43,.75)';
-      c.fillText(this.fps + ' FPS', this.w - 12, 72); // 暂停按钮下方空白区
+      c.fillText(this.fps + '帧/屏' + (this.displayHz || '?') + 'Hz', this.w - 12, 72); // 暂停按钮下方空白区
       c.textAlign = 'left';
     }
   }

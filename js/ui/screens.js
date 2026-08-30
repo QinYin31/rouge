@@ -54,9 +54,12 @@ function mmss(t) {
 }
 
 // 设置开关:label > checkbox + span,美化交给 CSS
-function buildToggles(container, data, onToggle) {
+function buildToggles(container, data, onToggle, g) {
   container.innerHTML = '';
-  for (const [key, label] of TOGGLE_DEFS) {
+  const hz = g && g.displayHz ? g.displayHz + 'Hz' : '';
+  for (const [key, labelText] of TOGGLE_DEFS) {
+    let label = labelText;
+    if (key === 'hfr' && hz) label += '(' + hz + ')'; // 高刷开关旁显示检测到的屏幕刷新率
     const l = document.createElement('label');
     l.className = 'tg';
     const cb = document.createElement('input');
@@ -104,7 +107,7 @@ export const Screens = {
       `<br>总场次 <b>${d.totalRuns}</b> · 总击杀 <b>${d.totalKills}</b> · 金币 <b>🪙 ${d.gold}</b>`;
     bindTap(document.getElementById('btn-play'), cb.onPlay);
     bindTap(document.getElementById('btn-shop'), cb.onShop);
-    buildToggles(document.getElementById('menu-toggles'), d, cb.onToggle);
+    buildToggles(document.getElementById('menu-toggles'), d, cb.onToggle, this.g);
     this.show('screen-menu');
   },
 
@@ -327,7 +330,7 @@ export const Screens = {
   buildPause(cb) {
     bindTap(document.getElementById('btn-resume'), cb.onResume);
     bindTap(document.getElementById('btn-quit'), cb.onQuit);
-    buildToggles(document.getElementById('pause-toggles'), this.g.save.data, cb.onToggle);
+    buildToggles(document.getElementById('pause-toggles'), this.g.save.data, cb.onToggle, this.g);
     const g = this.g;
     if (g.player) {
       if (!this._pauseInfo) {
