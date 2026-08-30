@@ -62,7 +62,7 @@ export function initPickups(g) {
       } else if (k.kind === 'gem' && d < 260) { // 远程缓漂:宝石主动飘向玩家
         k.x += dx / d * 70 * dt; k.y += dy / d * 70 * dt;
       }
-      if (d < 26) { // 拾取
+      if (d < 30) { // 拾取
         if (k.kind === 'gem') p.addXp(k.xp);
         else if (k.kind === 'coin') { g.stats.gold += Math.round(k.gold * p.stats.goldMult); }
         else if (k.kind === 'meat') {
