@@ -512,30 +512,42 @@ export function makeWeapon(id) {
           break;
         }
         case 'holy': { // 墨雨(v2.1 §1):朝怪物最多的方向落瓶
-          // 600px 内敌人按 12 方向扇区单次遍历分桶(O(n)),取敌最多的扇区,
-          // 在其质心附近落瓶(距玩家 180~380px 环带);无敌人才回退随机方向
+          // 墨雨判定 v3:「最近的怪物密集处」——以每个敌人为簇心统计 130px 局部密度,
+          // 分数 = 密度 ÷ (1 + 距离/240)(又近又多者优先);落瓶于簇质心,钳 120~380px
           this.timer = b.cd[L] * p.stats.cdMult;
-          secCnt.fill(0); secSumX.fill(0); secSumY.fill(0);
-          const es = g.enemies, R2 = 600 * 600, px = p.x, py = p.y;
+          const es = g.enemies, R2 = 600 * 600, px = p.x, py = p.y, CL2 = 130 * 130;
+          let bestI = -1, bestScore = 0;
           for (let i = 0; i < es.length; i++) {
             const e = es[i];
             if (e.dead) continue;
             const dx = e.x - px, dy = e.y - py, d2 = dx * dx + dy * dy;
             if (d2 > R2) continue;
-            let s = ((Math.atan2(dy, dx) + Math.PI) * (HOLY_SEC / TAU)) | 0;
-            if (s >= HOLY_SEC) s = HOLY_SEC - 1; // atan2 边界(±PI)浮点回绕保护
-            secCnt[s]++; secSumX[s] += dx; secSumY[s] += dy;
+            let n = 0;
+            for (let k = 0; k < es.length; k++) {
+              const o = es[k];
+              if (o.dead) continue;
+              const ox = o.x - e.x, oy = o.y - e.y;
+              if (ox * ox + oy * oy <= CL2) n++;
+            }
+            const score = n / (1 + Math.sqrt(d2) / 240);
+            if (score > bestScore) { bestScore = score; bestI = i; }
           }
-          let bi = -1, bn = 0;
-          for (let s = 0; s < HOLY_SEC; s++) if (secCnt[s] > bn) { bn = secCnt[s]; bi = s; }
           const n = b.n[L], T = 0.55;
           for (let i = 0; i < n; i++) {
             let dx, dy;
-            if (bi >= 0) { // 最密扇区质心附近 + 小幅散布,钳制 180~380px 环带
-              dx = secSumX[bi] / bn + (Math.random() - 0.5) * 90;
-              dy = secSumY[bi] / bn + (Math.random() - 0.5) * 90;
+            if (bestI >= 0) { // 最近密集簇质心 + 小幅散布,钳制 120~380px 环带
+              const ce = es[bestI];
+              let cx = 0, cy = 0, cn = 0;
+              for (let k = 0; k < es.length; k++) {
+                const o = es[k];
+                if (o.dead) continue;
+                const ox = o.x - ce.x, oy = o.y - ce.y;
+                if (ox * ox + oy * oy <= CL2) { cx += o.x; cy += o.y; cn++; }
+              }
+              dx = (cn ? cx / cn : ce.x) - px + (Math.random() - 0.5) * 70;
+              dy = (cn ? cy / cn : ce.y) - py + (Math.random() - 0.5) * 70;
               const dd = Math.sqrt(dx * dx + dy * dy) || 1;
-              const cl = dd < 180 ? 180 / dd : dd > 380 ? 380 / dd : 1;
+              const cl = dd < 120 ? 120 / dd : dd > 380 ? 380 / dd : 1;
               dx *= cl; dy *= cl;
             } else { // 视野无敌人:回退随机方向
               const a = Math.random() * TAU, dist = 90 + Math.random() * 150;

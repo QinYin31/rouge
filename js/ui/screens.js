@@ -241,8 +241,8 @@ export const Screens = {
       if (done) return;
       done = true;
       this._rerollUsed = false; // 本次升级已做出选择,链式升级的下一档重新享有刷新
-      this._unbindKeys();
-      SFX.play(c && c.evo === true ? 'evolve' : 'click'); // 进化卡:专属华丽音
+      try { this._unbindKeys(); } catch (e) {}
+      try { SFX.play(c && c.evo === true ? 'evolve' : 'click'); } catch (e) {} // 音效绝不阻断选择
       onPick(c);
     };
 

@@ -98,11 +98,25 @@ export class Engine {
       this.acc -= step; steps++;
       if (this.paused === 0) {
         this.time += step;
-        for (const fn of this.updaters) fn(step);
+        this._runList(this.updaters, step, 'update');
       }
     }
-    if (this.always) for (const fn of this.always) fn(dt);
+    if (this.always) this._runList(this.always, dt, 'always');
     this._draw();
+  }
+
+  // 防冻结护栏:单个更新/绘制函数抛错时跳过该帧该函数并记录,
+  // 连续 120 帧失败(约 2 秒)自动停用,保证任何局部 bug 都不会永久卡死游戏
+  _runList(list, arg, kind) {
+    for (let i = 0; i < list.length; i++) {
+      const fn = list[i];
+      try { fn(arg); }
+      catch (err) {
+        fn._errs = (fn._errs || 0) + 1;
+        console.error(`[Engine] ${kind} exception (consecutive x${fn._errs}), skipped this frame:`, err);
+        if (fn._errs >= 120) { console.error('[Engine] Auto-disabled after consecutive failures:', fn); list.splice(i, 1); i--; }
+      }
+    }
   }
 
   _draw() {
@@ -115,7 +129,7 @@ export class Engine {
     ctx.translate(this.w / 2, this.h / 2);
     ctx.scale(zoom, zoom);
     ctx.translate(-cam.x + ox, -cam.y + oy);
-    for (const l of LAYERS) for (const fn of this.drawers[l]) fn(ctx);
+    for (const l of LAYERS) this._runList(this.drawers[l], ctx, 'draw:' + l);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 }

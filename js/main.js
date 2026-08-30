@@ -70,16 +70,29 @@ Bus.on('levelup', () => {
   showLevelUpOnce(false);
 });
 function showLevelUpOnce(rerolled) {
-  const choices = rollChoices(engine);
-  Screens.showLevelUp(choices, c => {
-    applyChoice(engine, c);
-    engine.player.pendingLevels--;
-    if (engine.player.pendingLevels > 0) showLevelUpOnce(false);
-    else { Screens.hide(); engine.resume(); }
-  }, () => {
-    if (rerolled) return; // 每次升级仅 1 次刷新
-    showLevelUpOnce(true);
-  });
+  let choices;
+  try { choices = rollChoices(engine); }
+  catch (err) { console.error('[升级] 选项生成失败,跳过本次升级', err); skipLevelUp(); return; }
+  try {
+    Screens.showLevelUp(choices, c => {
+      try { applyChoice(engine, c); }
+      catch (err) { console.error('[升级] 应用失败,已忽略', err); }
+      engine.player.pendingLevels--;
+      if (engine.player.pendingLevels > 0) showLevelUpOnce(false);
+      else { Screens.hide(); engine.resume(); }
+    }, () => {
+      if (rerolled) return; // 每次升级仅 1 次刷新
+      showLevelUpOnce(true);
+    });
+  } catch (err) { // 面板异常时自愈:跳过升级,绝不把游戏锁死在暂停态
+    console.error('[升级] 面板渲染失败,跳过本次升级', err);
+    skipLevelUp();
+  }
+}
+function skipLevelUp() {
+  if (engine.player) engine.player.pendingLevels = 0;
+  Screens.hide();
+  engine.resume(); // 与 Bus('levelup') 里的 pause() 配对,消除软锁
 }
 
 // ---------- 结算 ----------
