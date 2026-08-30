@@ -74,7 +74,7 @@ function recFor(g, c, plv) {
   }
   if (c.kind === 'newWeapon' || c.kind === 'weapon') { // ② 绑定心法已 ≥4 级 → 取此武器即可进化
     const d = WEAPONS[c.id];
-    if (d && d.evo && (plv[d.evo.passive] || 0) >= 4) return '可进化·' + d.evo.evoName;
+    if (d && d.evo && (plv[d.evo.passive] || 0) >= 3) return '可进化·' + d.evo.evoName;
     // ③ 协同向:焚天↔墨雨系(阴阳相激)、五雷↔墨雨系(感电连锁)
     if (c.id === 'holy') {
       if (own('fireball')) return '联动·阴阳相激';
@@ -115,7 +115,7 @@ export function rollChoices(g) {
       });
     } else if (!w.evolved) {
       const evo = d.evo;
-      if (evo && (plv[evo.passive] || 0) >= PASSIVES[evo.passive].maxLv) evoIds.push(w.id);
+      if (evo && (plv[evo.passive] || 0) >= Math.min(3, PASSIVES[evo.passive].maxLv)) evoIds.push(w.id); // 门槛:心法3级(v2.3 下调)
     }
   }
   // 新武器(未满 4 把)

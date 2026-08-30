@@ -17,6 +17,7 @@ import { makeWeapon } from './game/weapons.js?v=11';
 import { HUD } from './ui/hud.js?r=8';
 import { Screens } from './ui/screens.js?v=11';
 import { Joystick } from './ui/joystick.js?v=11';
+import { Codex } from './ui/codex.js?v=11';
 
 const canvas = document.getElementById('game');
 const engine = new Engine(canvas);
@@ -172,6 +173,12 @@ function startRun(charId) {
   engine.start();
   engine.spawnText(0, -50, '活下来!', { color: '#fee761', size: 26, life: 2 });
 }
+
+// 组合图鉴入口(主菜单)
+document.getElementById('btn-codex').addEventListener('click', () => {
+  SFX.play('click');
+  Codex.open();
+});
 
 function applySetting(k, v) {
   Save.data.settings[k] = v; Save.commit();

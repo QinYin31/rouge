@@ -589,3 +589,164 @@ button { font-family: inherit; }
 
 /* 商店返回按钮吸底(列表长时始终可见) */
 #btn-shop-back { position: sticky; bottom: 0; width: 100%; margin-top: 10px; }
+
+/* =========================================================================
+   ==== 组合图鉴(codex)==== —— 📜图鉴agent 名下(末尾独立追加段)
+   宣纸面板墨框沿用 .panel;动效只用 transform / opacity(帧率友好)
+   ========================================================================= */
+.codex-panel {
+  width: min(620px, 96vw);
+  text-align: left;
+  padding: 16px 18px 14px;
+}
+.codex-panel h2 { text-align: center; margin-bottom: 10px; }
+
+/* 标签页:纸底墨框;选中态朱砂印泥 */
+#codex-tabs {
+  display: flex; gap: 8px; justify-content: center;
+  margin-bottom: 10px; flex-wrap: wrap;
+}
+.codex-tab {
+  font: inherit; font-size: 14px; font-weight: 700; letter-spacing: 2px;
+  padding: 7px 16px; cursor: pointer;
+  color: var(--ink-3);
+  background: linear-gradient(var(--paper-hi), var(--paper-dk));
+  border: 2px solid var(--ink-4);
+  box-shadow: inset 0 0 0 1px rgba(236, 229, 211, .8), 1px 2px 0 rgba(43, 43, 43, .2);
+  text-shadow: 0 1px 0 rgba(250, 246, 234, .7);
+  transition: transform .06s steps(2), opacity .12s;
+}
+.codex-tab:hover { opacity: .85; }
+.codex-tab:active { transform: translateY(1px); }
+.codex-tab.on {
+  color: var(--paper-hi);
+  background: linear-gradient(var(--cinnabar-hi), var(--cinnabar));
+  border-color: var(--cinnabar-dk);
+  text-shadow: 0 1px 0 rgba(92, 26, 20, .55);
+  box-shadow: inset 0 0 0 1px rgba(250, 246, 234, .4), 1px 2px 0 rgba(43, 43, 43, .28);
+}
+.codex-tab .codex-tab-n { font-size: 11px; opacity: .8; margin-left: 4px; letter-spacing: 0; }
+
+/* 演示舞台:圆角墨框画布(宣纸底由画布自绘) */
+#codex-stage {
+  position: relative;
+  max-width: 480px;
+  margin: 0 auto 10px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--paper);
+  box-shadow:
+    inset 0 0 0 1px rgba(236, 229, 211, .85),
+    inset 0 0 18px rgba(107, 107, 93, .28),
+    2px 3px 0 rgba(43, 43, 43, .22);
+}
+#codex-stage canvas {
+  display: block; width: 100%; height: auto;
+  image-rendering: auto; /* 覆盖全局 pixelated:整幅缓冲随容器缩放更平滑 */
+}
+
+/* 详情:合成路径横排图标 + 文字 */
+#codex-info {
+  min-height: 118px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 2px solid var(--ink-4);
+  background:
+    repeating-linear-gradient(0deg, rgba(107, 107, 93, .035) 0 1px, transparent 1px 3px),
+    linear-gradient(150deg, var(--paper-hi), var(--paper));
+  box-shadow: inset 0 0 0 1px rgba(236, 229, 211, .7), 1px 2px 0 rgba(43, 43, 43, .16);
+}
+.codex-info-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.codex-info-name {
+  font-size: 17px; font-weight: 700; letter-spacing: 2px;
+  color: var(--cinnabar);
+  text-shadow: 0 1px 0 rgba(242, 236, 221, .8);
+}
+.codex-info-tag {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  color: var(--paper-hi); background: var(--ink-3);
+  border: 1px solid var(--ink);
+  padding: 1px 6px;
+}
+.codex-path {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 2px 8px;
+  margin: 8px 0 6px;
+}
+.codex-path-node {
+  display: inline-flex; flex-direction: column; align-items: center;
+  gap: 2px; min-width: 46px;
+}
+.codex-path-node canvas { display: block; }
+.codex-path-label {
+  font-size: 11px; font-weight: 700; color: var(--ink-2);
+  text-shadow: 0 1px 0 rgba(242, 236, 221, .8);
+  white-space: nowrap;
+}
+.codex-path-node.is-evo .codex-path-label { color: var(--cinnabar); }
+.codex-path-plus, .codex-path-arrow {
+  font-size: 15px; font-weight: 700; color: var(--ink-3);
+  text-shadow: 0 1px 0 rgba(242, 236, 221, .8);
+}
+.codex-info-desc { font-size: 13px; color: var(--ink-2); line-height: 1.65; }
+.codex-info-cond { font-size: 12px; color: var(--ink-3); margin-top: 4px; line-height: 1.6; }
+.codex-info-cond b { color: var(--cinnabar); }
+
+/* 条目列表:双列网格(手机单列) */
+#codex-list {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.codex-item {
+  display: flex; align-items: center; gap: 8px;
+  text-align: left;
+  font: inherit; cursor: pointer;
+  padding: 7px 8px;
+  color: var(--ink);
+  background:
+    repeating-linear-gradient(0deg, rgba(107, 107, 93, .035) 0 1px, transparent 1px 3px),
+    linear-gradient(150deg, var(--paper-hi), var(--paper-dk));
+  border: 2px solid var(--ink-4);
+  box-shadow: inset 0 0 0 1px rgba(236, 229, 211, .7), 1px 2px 0 rgba(43, 43, 43, .16);
+  transition: transform .06s steps(2), opacity .12s;
+}
+.codex-item:hover { opacity: .88; transform: translateY(-1px); }
+.codex-item:active { transform: translateY(1px); }
+/* 选中态:朱砂描边 + 印泥微光 */
+.codex-item.sel {
+  border-color: var(--cinnabar);
+  box-shadow:
+    inset 0 0 0 1px rgba(200, 85, 69, .5),
+    1px 2px 0 rgba(43, 43, 43, .2),
+    0 0 10px rgba(176, 58, 46, .35);
+}
+.codex-item.sel .codex-item-name { color: var(--cinnabar); }
+.codex-item-icon {
+  width: 36px; height: 36px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 38% 32%, var(--paper-hi), var(--paper-dk));
+  border: 2px solid var(--ink-3);
+  border-radius: 50%;
+  box-shadow: inset -2px -3px 5px rgba(107, 107, 93, .3), inset 0 0 0 1px rgba(236, 229, 211, .85);
+}
+.codex-item.sel .codex-item-icon { border-color: var(--cinnabar); }
+.codex-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.codex-item-name {
+  font-size: 14px; font-weight: 700; letter-spacing: 1px; color: var(--ink);
+  text-shadow: 0 1px 0 rgba(242, 236, 221, .8);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.codex-item-sub { font-size: 11px; color: var(--ink-4); margin-top: 1px; }
+
+/* 返回按钮吸底(列表长时始终可见,与商店一致) */
+#btn-codex-back { position: sticky; bottom: 0; width: 100%; margin-top: 10px; }
+
+/* 手机单列 */
+@media (max-width: 560px) {
+  .codex-panel { padding: 12px 10px 10px; }
+  #codex-list { grid-template-columns: 1fr; }
+  .codex-info-name { font-size: 15px; }
+  #codex-info { min-height: 0; }
+}
