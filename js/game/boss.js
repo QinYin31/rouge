@@ -1,8 +1,8 @@
 // ===== ⚔️ 战斗agent 名下:Boss 系统(300s 石像守卫 / 600s 无常尊者 / 无尽复读) =====
 // Boss 类型定义在 enemies.js 的 ENEMY_TYPES 中(不进常规刷怪池),行为 AI 由 enemies.js 按 beh 驱动;
 // 本模块负责:定时召唤、血条引用 g.boss、死亡大爆炸/震屏/宝箱、最终 Boss 通关事件。
-import { spawnEnemy, shakeIf, combatState } from './enemies.js';
-import { Bus } from '../core/engine.js';
+import { spawnEnemy, shakeIf, combatState } from './enemies.js?v=11';
+import { Bus } from '../core/engine.js?v=11';
 
 export function initBoss(g) {
   let s300 = false, s600 = false, victorySent = false, endlessArmed = false, nextGolem = 0;

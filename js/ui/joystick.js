@@ -1,5 +1,5 @@
 // ===== 🖥️ UI agent 名下:固定底盘虚拟摇杆(触点即中心、不跟手漂移 / 12px 启动死区 / 单位向量全速) =====
-import { Input } from '../core/input.js';
+import { Input } from '../core/input.js?v=11';
 
 export const Joystick = {
   g: null, wrap: null, base: null, knob: null,

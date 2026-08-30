@@ -10,9 +10,9 @@
 // CONTRACT v2.2 §7 清怪爽感:升级主体成长改「覆盖/效率」——每级至少一项覆盖性成长
 //  (投射物 +1 / 范围 / 射程 / 持续 / 穿透 / 连锁 / 冷却),伤害仅次要增长(+10~15%/级);
 //  §8 组合推荐:rollChoices 输出 rec 标记(见 upgrades.js)。进化形态同步放大覆盖。
-import { Bus } from '../core/engine.js';
-import { drawSprite, has } from '../sprites.js';
-import { damageEnemy, applyStatus, chainLightning } from './enemies.js';
+import { Bus } from '../core/engine.js?v=11';
+import { drawSprite, has } from '../sprites.js?v=11';
+import { damageEnemy, applyStatus, chainLightning } from './enemies.js?v=11';
 
 export const WEAPON_ORDER = ['knife', 'wand', 'bow', 'orb', 'lightning', 'fireball', 'boomerang', 'holy', 'shield'];
 export const MAX_WEAPONS = 4; // 同时持有武器上限(含初始武器)

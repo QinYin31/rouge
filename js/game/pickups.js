@@ -1,6 +1,6 @@
 // ===== 拾取物:宝石/金币/肉/磁铁/宝箱(带视口剔除与数量上限合并,保流畅) =====
-import { drawSprite } from '../sprites.js';
-import { Bus } from '../core/engine.js';
+import { drawSprite } from '../sprites.js?v=11';
+import { Bus } from '../core/engine.js?v=11';
 
 const MAX_PICKUPS = 320; // 超限时最旧宝石并入相邻宝石(防后期上千掉落物拖垮绘制)
 

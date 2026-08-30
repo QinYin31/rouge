@@ -1,5 +1,5 @@
 // 粒子与飘字(对象池)
-import { Bus } from '../core/engine.js';
+import { Bus } from '../core/engine.js?v=11';
 
 const isMobile = window.innerWidth < 600;
 const MAX_P = isMobile ? 320 : 700, MAX_T = 90; // 移动端减预算保流畅
@@ -13,7 +13,8 @@ export function initParticles(g) {
       p.life -= dt;
       if (p.life <= 0) { g.remove(pool, i); continue; }
       p.x += p.vx * dt; p.y += p.vy * dt;
-      p.vx *= p.drag; p.vy *= p.drag;
+      const f = Math.pow(p.drag, dt * 60); // 帧率无关阻力
+      p.vx *= f; p.vy *= f;
       p.vy += p.grav * dt;
     }
     for (let i = tpool.length - 1; i >= 0; i--) {
@@ -25,6 +26,7 @@ export function initParticles(g) {
   });
   g.addDrawer('fx', ctx => {
     for (const p of pool) {
+      if (!g.inView(p.x, p.y, 20)) continue;
       ctx.globalAlpha = Math.min(1, p.life / p.maxLife * 1.5);
       ctx.fillStyle = p.color;
       const s = p.size;

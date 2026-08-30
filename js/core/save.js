@@ -10,7 +10,7 @@ function defaults() {
   return {
     v: 1, gold: 0, chars: ['knight'],
     shop: { might: 0, hp: 0, speed: 0, cd: 0, magnet: 0, xp: 0, gold: 0, armor: 0 },
-    settings: { sfx: true, music: true, shake: true },
+    settings: { sfx: true, music: true, shake: true, hfr: false, lowgfx: false, fpsShow: false },
     best: { time: 0, kills: 0, level: 0, victory: false },
     totalRuns: 0, totalKills: 0,
   };

@@ -36,7 +36,7 @@ const LAYERS = ['ground', 'zones', 'under', 'enemies', 'player', 'projectiles', 
 export class Engine {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
+    this.ctx = canvas.getContext('2d', { desynchronized: true, alpha: false }); // 低延迟合成
     this.updaters = []; this.drawers = {}; LAYERS.forEach(l => this.drawers[l] = []);
     this.resets = [];
     this.enemies = []; this.projectiles = []; this.zones = []; this.pickups = [];
@@ -47,12 +47,14 @@ export class Engine {
     this.time = 0; this.paused = 0; this.running = false;
     this.cam = null; // main 注入
     this.acc = 0; this.lastT = 0;
+    this.step = 1 / 60; this.maxSteps = 4;      // 帧率模式:setHfr 切换
+    this.dprCap = 2; this.fps = 60; this.fpsShow = false;
     this._bind = this._frame.bind(this);
     window.addEventListener('resize', () => this.resize());
     this.resize();
   }
   resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, this.dprCap);
     this.dpr = dpr;
     this.w = window.innerWidth; this.h = window.innerHeight;
     this.canvas.width = Math.round(this.w * dpr); this.canvas.height = Math.round(this.h * dpr);
@@ -92,18 +94,32 @@ export class Engine {
     let dt = (t - this.lastT) / 1000; this.lastT = t;
     if (dt > 0.25) dt = 0.25;
     this.acc += dt;
-    const step = 1 / 60;
     let steps = 0;
-    while (this.acc >= step && steps < 4) {
-      this.acc -= step; steps++;
+    while (this.acc >= this.step && steps < this.maxSteps) {
+      this.acc -= this.step; steps++;
       if (this.paused === 0) {
-        this.time += step;
-        this._runList(this.updaters, step, 'update');
+        this.time += this.step;
+        this._runList(this.updaters, this.step, 'update');
       }
     }
     if (this.always) this._runList(this.always, dt, 'always');
+    // FPS 统计(0.5s 窗口)
+    this._fpsAcc = (this._fpsAcc || 0) + dt; this._fpsN = (this._fpsN || 0) + 1;
+    if (this._fpsAcc >= 0.5) { this.fps = Math.round(this._fpsN / this._fpsAcc); this._fpsAcc = 0; this._fpsN = 0; }
     this._draw();
+    if (this.fpsShow) {
+      const c = this.ctx;
+      c.font = 'bold 12px "Microsoft YaHei", sans-serif';
+      c.textAlign = 'right';
+      c.fillStyle = 'rgba(43,43,43,.75)';
+      c.fillText(this.fps + ' FPS', this.w - 12, 72); // 暂停按钮下方空白区
+      c.textAlign = 'left';
+    }
   }
+
+  setHfr(on) { this.step = on ? 1 / 120 : 1 / 60; this.maxSteps = on ? 9 : 4; } // 高刷屏跟随设备刷新率
+  setDprCap(cap) { this.dprCap = cap; this.resize(); }
+  setFpsShow(on) { this.fpsShow = on; }
 
   // 防冻结护栏:单个更新/绘制函数抛错时跳过该帧该函数并记录,
   // 连续 120 帧失败(约 2 秒)自动停用,保证任何局部 bug 都不会永久卡死游戏

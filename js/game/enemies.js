@@ -3,8 +3,8 @@
 //       伤害唯一入口 damageEnemy(数字/暴击/击退/闪白/死亡掉落)。
 // 联动(CONTRACT v2):e.status={burn,wet} 秒数;焚天命中→灼烧,墨雨/墨染→墨湿;
 //       burn+wet 并存→蒸汽爆发(90px AoE+白雾+震屏);五雷击中湿敌→感电连锁;灼烧之敌死亡→殉焰火区。
-import { drawSprite } from '../sprites.js';
-import { Bus } from '../core/engine.js';
+import { drawSprite } from '../sprites.js?v=11';
+import { Bus } from '../core/engine.js?v=11';
 
 // 战斗模块共享的运行状态:main 仅在 startRun 中调用 applyShopBonuses(upgrades.js),
 // 以此作为"本局开始"信号;engine.reset 时由各战斗模块的 addReset 复位,
@@ -330,6 +330,7 @@ export function initCombat(g) {
     const p = g.player;
     if (!p || !combatState.runActive) return;
     const es = g.enemies, px = p.x, py = p.y;
+    const kbDecay = Math.pow(0.86, dt * 60); // 击退衰减:120Hz 下不加速衰减
 
     // 1) 空间哈希重建(武器索敌 / 弹幕判定 / 软分离共用)
     g.grid.clear();
@@ -445,7 +446,7 @@ export function initCombat(g) {
       }
       e.x += (vx + e.kx) * dt;
       e.y += (vy + e.ky) * dt;
-      e.kx *= 0.86; e.ky *= 0.86;
+      e.kx *= kbDecay; e.ky *= kbDecay; // 帧率无关(按 dt 归一化)
       // 远处(>1100)回收:传送到玩家另一侧环带,避免堆积
       if (!e.boss) {
         const fx = e.x - px, fy = e.y - py;

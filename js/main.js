@@ -1,22 +1,22 @@
 // 《像素幸存者》主入口:装配全部模块、场景流转
-import { Engine, Bus } from './core/engine.js';
-import { Camera } from './core/camera.js';
-import { Input } from './core/input.js';
-import { Save } from './core/save.js';
-import { SFX } from './core/audio.js';
-import { bake } from './sprites.js';
-import { Player, CHARACTERS } from './game/player.js';
-import { initMap } from './game/map.js';
-import { initParticles } from './game/particles.js';
-import { initCombat } from './game/enemies.js';
-import { initSpawner, setEndless } from './game/spawner.js';
-import { initBoss } from './game/boss.js';
-import { initPickups } from './game/pickups.js';
-import { rollChoices, applyChoice, applyShopBonuses, SHOP_UPGRADES } from './game/upgrades.js';
-import { makeWeapon } from './game/weapons.js';
+import { Engine, Bus } from './core/engine.js?v=11';
+import { Camera } from './core/camera.js?v=11';
+import { Input } from './core/input.js?v=11';
+import { Save } from './core/save.js?v=11';
+import { SFX } from './core/audio.js?v=11';
+import { bake } from './sprites.js?v=11';
+import { Player, CHARACTERS } from './game/player.js?v=11';
+import { initMap } from './game/map.js?v=11';
+import { initParticles } from './game/particles.js?v=11';
+import { initCombat } from './game/enemies.js?v=11';
+import { initSpawner, setEndless } from './game/spawner.js?v=11';
+import { initBoss } from './game/boss.js?v=11';
+import { initPickups } from './game/pickups.js?v=11';
+import { rollChoices, applyChoice, applyShopBonuses, SHOP_UPGRADES } from './game/upgrades.js?v=11';
+import { makeWeapon } from './game/weapons.js?v=11';
 import { HUD } from './ui/hud.js?r=8';
-import { Screens } from './ui/screens.js';
-import { Joystick } from './ui/joystick.js';
+import { Screens } from './ui/screens.js?v=11';
+import { Joystick } from './ui/joystick.js?v=11';
 
 const canvas = document.getElementById('game');
 const engine = new Engine(canvas);
@@ -118,7 +118,8 @@ function endRun(victory) {
     endless: victory,
     onAgain: () => startRun(lastChar),
     onEndless: () => { setEndless(engine); inRun = true; HUD.show(true); Screens.hide(); engine.resume(); },
-    onMenu: () => { engine.reset(); showMenu(); },
+    onMenu: () => { engine.reset(); if (location.search.includes('dev')) document.title = 'S:' + JSON.stringify(Save.data.settings);
+showMenu(); },
   });
 }
 
@@ -176,6 +177,9 @@ function applySetting(k, v) {
   Save.data.settings[k] = v; Save.commit();
   if (k === 'sfx') SFX.setSfx(v);
   if (k === 'music') SFX.setMusic(v);
+  if (k === 'hfr') engine.setHfr(v);        // 高刷模式:120Hz 屏跟随设备刷新率
+  if (k === 'lowgfx') engine.setDprCap(v ? 1 : 2); // 流畅画质:降采样保帧率
+  if (k === 'fpsShow') engine.setFpsShow(v);
 }
 
 // ---------- 暂停按钮 / 失焦自动暂停 ----------
@@ -198,6 +202,9 @@ document.addEventListener('visibilitychange', () => {
 
 SFX.setSfx(Save.data.settings.sfx);
 SFX.setMusic(Save.data.settings.music);
+engine.setHfr(!!Save.data.settings.hfr);
+engine.setDprCap(Save.data.settings.lowgfx ? 1 : 2);
+engine.setFpsShow(!!Save.data.settings.fpsShow);
 showMenu();
 engine.start();
 
