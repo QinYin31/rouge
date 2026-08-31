@@ -432,6 +432,7 @@ label.tg input:checked {
 .char-card.locked:hover { border-color: var(--ink-3); transform: none; filter: grayscale(.9) brightness(.8) opacity(.75); }
 .char-name { font-size: 17px; font-weight: 700; letter-spacing: 3px; color: var(--ink); text-shadow: 0 1px 0 rgba(242, 236, 221, .8); }
 .char-desc { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.char-trait { font-size: 12px; font-weight: 700; color: var(--cinnabar); margin-top: 3px; line-height: 1.45; }
 .char-attrs { color: var(--ink-4); }
 .char-cost { font-size: 12px; color: var(--gold); margin-top: 4px; font-weight: 700; text-shadow: 0 1px 0 rgba(242, 236, 221, .8); }
 .char-card.locked .char-cost { color: var(--ink-4); }

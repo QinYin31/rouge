@@ -28,20 +28,20 @@ export function initBoss(g) {
     // 300s 小 Boss:石像守卫(冲撞型)
     if (!s300 && t >= 300) {
       s300 = true;
-      spawnBoss('boss_golem', 1, 1 + t / 1200);
+      spawnBoss('boss_golem', 1.1, 1.1 + t / 1800);
     }
     // 600s 最终 Boss:无常尊者(三阶段弹幕型)
     if (!s600 && t >= 600) {
       s600 = true;
       g._finalBoss = true; // 通知 spawner 停止常规刷怪
-      spawnBoss('boss_overlord', 1, 1);
+      spawnBoss('boss_overlord', 1.15, 1.1);
     }
     // 无尽模式:每 150s 复读石像守卫(强度继续随时间增长)
     if (g._endless) {
       if (!endlessArmed) { endlessArmed = true; nextGolem = t + 120; }
       else if (t >= nextGolem && (!g.boss || g.boss.dead)) {
         nextGolem = t + 150;
-        spawnBoss('boss_golem', 1 + (t - 600) / 240, 1 + t / 600);
+        spawnBoss('boss_golem', 1.1 + (t - 600) / 240, 1 + t / 600);
       }
     }
   });

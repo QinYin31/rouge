@@ -33,14 +33,15 @@ Bus.on(evt,fn) / Bus.emit(evt,data)
 ## Player (js/game/player.js) — 已实现,不可修改
 ```js
 p.x,p.y,p.hp,p.level,p.xp,p.facing(1/-1),p.animT,p.moving,p.iframes
-p.stats = { maxHp, might, cdMult, speed, magnet, xpMult, goldMult, armor, areaMult, crit, critDmg, regen }
-p.takeDamage(amount)            // 内部处理护甲/无敌帧/死亡
-p.addXp(n)                      // 升级时 pendingLevels++ 并 Bus.emit('levelup')
+p.stats = { maxHp, might, cdMult, speed, magnet, xpMult, goldMult, armor, areaMult, crit, critDmg, damageTakenMult, regen }
+p.takeDamage(amount)            // 内部处理护甲/角色减伤/无敌帧/死亡
+p.addXp(n)                      // 累积升级并在 pendingLevels 从 0 变为正数时 Bus.emit('levelup')
 p.pendingLevels                 // 待处理的升级数
 p.weapons                       // WeaponInstance 数组
 p.bonuses                       // 被动加成槽(见下),applyChoice 修改后调用 p.recalc()
 ```
 bonuses 槽:`{mightMult, cdMult, hpFlat, hpMult, speedMult, magnetFlat, xpMult, goldMult, armorFlat, areaMult, regenFlat}`(初始 0/1)
+角色特性:剑客受到伤害×0.82;道人范围×1.18且经验×1.12;游侠暴击20%且暴击伤害×1.75。
 
 ## 美术模块 (js/sprites.js) — 🎨美术agent 名下
 ```js
@@ -85,7 +86,7 @@ export function initSpawner(g)     // updater:按时间曲线成波刷怪(环带
 export function setEndless(g)      // 通关后无尽模式曲线
 
 // js/game/boss.js
-export function initBoss(g)        // 300s 小Boss boss_golem;600s 最终 boss_overlord
+export function initBoss(g)        // 300s 石像守卫(2800HP/30伤害,半血狂怒);600s 无常尊者(12000HP/36伤害,66%/33%三阶段)
 // 最终 Boss 死亡 -> Bus.emit('runend',{victory:true});小Boss掉宝箱。Boss 血条写 g.boss
 
 // js/game/upgrades.js
@@ -134,7 +135,7 @@ DOM id 已在 index.html 中全部定义,样式类以 css/style.css 现有类为
 ## 玩法数值基线(战斗agent 可调优)
 单局 600s;玩家 speed≈120、基础 HP 80-120;敌人 8 种常规+精英变体(hp×6、体型×1.3、掉宝箱);
 经验:gem 1/5/25(蓝/绿/红),升级需求 `Math.floor(6+lv*4+lv*lv*0.35)`;
-磁吸半径 60+;伤害数字暴击 10% ×1.6;金币掉率 8%,Boss/精英必掉宝箱。
+磁吸半径 60+;默认暴击 10%×1.6(游侠 20%×1.75);金币掉率 8%,Boss/精英必掉宝箱。
 
 ## 质量红线
 - 手机优先:竖屏可玩、触控 ≥44px、60fps、同屏 200+ 敌人不卡

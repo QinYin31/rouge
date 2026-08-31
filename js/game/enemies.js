@@ -22,9 +22,9 @@ export const ENEMY_TYPES = {
   turtle:        { name: '铁甲龟',   sprite: 'turtle',        hp: 170,  speed: 17, dmg: 14, r: 17, xp: 6,   coinP: 0.16, beh: 6,  col: '#9ac1c9', kb: 0 },
   wisp:          { name: '青灯鬼火', sprite: 'wisp',          hp: 26,   speed: 58, dmg: 10, r: 11, xp: 3,   coinP: 0.08, beh: 7,  col: '#2ce8f5', kb: 1 },
   reaper:        { name: '黑无常',   sprite: 'reaper',        hp: 95,   speed: 68, dmg: 22, r: 18, xp: 8,   coinP: 0.25, beh: 8,  col: '#68386c', kb: 0.4 },
-  // Boss 血量(v2.1 §4):-15% 配合敌人血量曲线软化(2200→1870 / 9000→7650)
-  boss_golem:    { name: '石像守卫', sprite: 'boss_golem',    hp: 1870, speed: 44, dmg: 26, r: 38, xp: 60,  coinP: 1,    beh: 9,  col: '#b55088', kb: 0.12, boss: 1 },
-  boss_overlord: { name: '无常尊者', sprite: 'boss_overlord', hp: 7650, speed: 42, dmg: 30, r: 48, xp: 150, coinP: 1,    beh: 10, col: '#e43b44', kb: 0.05, boss: 1 },
+  // Boss 基础数值：石像守卫 2800HP/30伤害，无常尊者 12000HP/36伤害；阶段转场另外释放弹幕。
+  boss_golem:    { name: '石像守卫', sprite: 'boss_golem',    hp: 2800, speed: 48, dmg: 30, r: 38, xp: 60,  coinP: 1,    beh: 9,  col: '#b55088', kb: 0.12, boss: 1 },
+  boss_overlord: { name: '无常尊者', sprite: 'boss_overlord', hp: 12000, speed: 46, dmg: 36, r: 48, xp: 150, coinP: 1,    beh: 10, col: '#e43b44', kb: 0.05, boss: 1 },
 };
 
 let uid = 0;
@@ -56,7 +56,7 @@ export function spawnEnemy(g, typeId, x, y, o = {}) {
     hpMult: o.hpMult || 1, dmgMult: o.dmgMult || 1, // 供纸妖分裂继承成长
     status: { burn: 0, wet: 0 }, burnT: 0,          // 元素状态(秒):灼烧/墨湿
     flashT: 0, kx: 0, ky: 0, hitCd: 0, orbCd: 0,
-    t: Math.random() * 10, aiT: Math.random() * 2.4, state: 0, atkCd: 2 + Math.random() * 2, atkN: 0,
+    t: Math.random() * 10, aiT: Math.random() * 2.4, state: 0, bossPhase: 0, atkCd: 2 + Math.random() * 2, atkN: 0,
     fuse: -1, cx: 0, cy: 0, spd: 0,
     kbMult: t.kb !== undefined ? t.kb : 1,
   };
@@ -255,6 +255,19 @@ function fanBullets(g, x, y, aim, n, spread, spd, dmg) {
   }
 }
 
+function summonBossAdds(g, e, phase) {
+  if (!g.enemies || g.enemies.length >= 176) return;
+  const type = phase === 2 ? 'wisp' : 'reaper';
+  const count = phase === 2 ? 3 : 4;
+  const hpMult = phase === 2 ? 2.4 : 2.2;
+  for (let i = 0; i < count && g.enemies.length < 176; i++) {
+    const a = (i / count) * TAU + Math.random() * 0.35;
+    spawnEnemy(g, type, e.x + Math.cos(a) * 105, e.y + Math.sin(a) * 105, {
+      hpMult, dmgMult: 1.15, speedMult: 1.12,
+    });
+  }
+}
+
 // 追踪弹转向寻的
 function steerHome(pr, dt, g) {
   const near = g.grid.query(pr.x, pr.y, 260, g.qbuf);
@@ -407,39 +420,68 @@ export function initCombat(g) {
           vx = ux * e.speed - uy * s; vy = uy * e.speed + ux * s;
           break;
         }
-        case 9: { // 石像守卫:蓄力 0.8s 后猛冲
-          e.atkCd -= dt;
-          if (e.state === 1) { // 蓄力(原地,红黄闪烁预警)
-            e.aiT -= dt; vx = 0; vy = 0;
-            if (e.aiT <= 0) { e.state = 2; e.aiT = 0.72; e.cx = ux; e.cy = uy; }
-          } else if (e.state === 2) { // 冲撞(留冲击特效)
-            e.aiT -= dt;
-            vx = e.cx * 410; vy = e.cy * 410;
-            g.addParticles(e.x, e.y, { n: 1, color: '#c0cbdc', speed: 40, life: 0.3, size: 4 });
-            if (e.aiT <= 0) {
-              e.state = 0; e.atkCd = 3.4;
-              shakeIf(g, 3, 0.15);
-              g.addParticles(e.x, e.y, { n: 10, color: '#c0cbdc', speed: 130, life: 0.4, size: 4 });
+        case 9: { // 石像守卫：蓄力冲锋 + 二阶段碎地冲击
+          const phase = e.hp / e.maxHp > 0.5 ? 1 : 2;
+          if (e.bossPhase !== phase) {
+            const changed = e.bossPhase > 0;
+            e.bossPhase = phase;
+            if (changed) {
+              g.spawnText(e.x, e.y - e.r - 22, '石像守卫·狂怒!', { color: '#b03a2e', size: 19, life: 1.1 });
+              g.addParticles(e.x, e.y, { n: 16, color: '#c0cbdc', speed: 180, life: 0.55, size: 5, grav: 80 });
+              ringBullets(g, e.x, e.y, 12 + phase * 4, 190 + phase * 20, 18 + phase * 5);
             }
-          } else if (e.atkCd <= 0 && d < 540) {
-            e.state = 1; e.aiT = 0.8;
+          }
+          e.atkCd -= dt;
+          if (e.state === 1) { // 蓄力：原地预警
+            e.aiT -= dt; vx = 0; vy = 0;
+            if (e.aiT <= 0) { e.state = 2; e.aiT = phase === 2 ? 0.62 : 0.75; e.cx = ux; e.cy = uy; }
+          } else if (e.state === 2) { // 冲锋：二阶段更快更远
+            e.aiT -= dt;
+            const chargeSpeed = phase === 2 ? 500 : 430;
+            vx = e.cx * chargeSpeed; vy = e.cy * chargeSpeed;
+            g.addParticles(e.x, e.y, { n: 1, color: '#c0cbdc', speed: 48, life: 0.3, size: 4 });
+            if (e.aiT <= 0) {
+              e.state = 0; e.atkCd = phase === 2 ? 2.1 : 2.8;
+              ringBullets(g, e.x, e.y, 12 + phase * 3, 180 + phase * 25, 18 + phase * 4);
+              g.addParticles(e.x, e.y, { n: 14, color: '#c0cbdc', speed: 160, life: 0.5, size: 5, grav: 90 });
+              g.spawnText(e.x, e.y - e.r - 18, '碎地冲击!', { color: '#b03a2e', size: 16, life: 0.8 });
+            }
+          } else if (e.atkCd <= 0 && d < 650) {
+            e.state = 1; e.aiT = phase === 2 ? 0.62 : 0.72;
             g.spawnText(e.x, e.y - e.r - 18, '!', { color: '#b03a2e', size: 18, life: 0.6 });
-            g.addParticles(e.x, e.y, { n: 6, color: '#b55088', speed: 70, life: 0.5, size: 3 });
+            g.addParticles(e.x, e.y, { n: 8, color: '#b55088', speed: 80, life: 0.5, size: 3 });
           }
           break;
         }
-        case 10: { // 无常尊者:三阶段(追踪 + 环形/扇形弹幕 + 狂暴加速)
+        case 10: { // 无常尊者：三阶段追击 + 转场弹幕 + 组合攻击
           const hpf = e.hp / e.maxHp;
           const phase = hpf > 0.66 ? 1 : hpf > 0.33 ? 2 : 3;
-          e.spd = phase === 1 ? 40 : phase === 2 ? 52 : 68;
+          if (e.bossPhase !== phase) {
+            const changed = e.bossPhase > 0;
+            e.bossPhase = phase;
+            if (changed) {
+              const burstN = 14 + phase * 5;
+              g.spawnText(e.x, e.y - e.r - 24, `无常尊者·第${phase}相!`, { color: '#e43b44', size: 20, life: 1.2 });
+              g.addParticles(e.x, e.y, { n: 22, color: '#e43b44', speed: 210, life: 0.65, size: 5, grav: 45 });
+              ringBullets(g, e.x, e.y, burstN, 190 + phase * 25, 20 + phase * 6);
+              summonBossAdds(g, e, phase);
+            }
+          }
+          e.spd = phase === 1 ? 44 : phase === 2 ? 58 : 76;
           vx = ux * e.spd; vy = uy * e.spd;
           e.atkCd -= dt;
           if (e.atkCd <= 0) {
             e.atkN++;
-            const bd = 14 + phase * 3, bs = 150 + phase * 18;
-            if (e.atkN % 2 === 1) ringBullets(g, e.x, e.y, 10 + phase * 4, bs, bd);
-            else fanBullets(g, e.x, e.y, Math.atan2(dy, dx), 3 + phase * 2, 0.26, bs + 30, bd + 4);
-            e.atkCd = phase === 3 ? 1.5 : phase === 2 ? 2.0 : 2.5;
+            const bd = 17 + phase * 5, bs = 185 + phase * 28;
+            if (e.atkN % 3 === 0) {
+              ringBullets(g, e.x, e.y, 12 + phase * 4, bs, bd);
+              fanBullets(g, e.x, e.y, Math.atan2(dy, dx), 5 + phase * 2, 0.22, bs + 45, bd + 6);
+            } else if (e.atkN % 2 === 1) {
+              ringBullets(g, e.x, e.y, 12 + phase * 4, bs, bd);
+            } else {
+              fanBullets(g, e.x, e.y, Math.atan2(dy, dx), 5 + phase * 2, 0.22, bs + 45, bd + 6);
+            }
+            e.atkCd = phase === 3 ? 1.15 : phase === 2 ? 1.55 : 2.0;
           }
           break;
         }

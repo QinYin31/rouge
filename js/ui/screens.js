@@ -131,6 +131,10 @@ export const Screens = {
       if (c.armor) attrs.push(`护甲 +${c.armor}`);
       if (c.cdMult && c.cdMult !== 1) attrs.push(`冷却 -${Math.round((1 - c.cdMult) * 100)}%`);
       if (c.magnet) attrs.push(`磁吸 +${c.magnet}`);
+      if (c.damageTakenMult && c.damageTakenMult < 1) attrs.push(`减伤 ${Math.round((1 - c.damageTakenMult) * 100)}%`);
+      if (c.areaMult && c.areaMult > 1) attrs.push(`范围 +${Math.round((c.areaMult - 1) * 100)}%`);
+      if (c.xpMult && c.xpMult > 1) attrs.push(`经验 +${Math.round((c.xpMult - 1) * 100)}%`);
+      if (c.crit && c.crit > 0.1) attrs.push(`暴击 ${Math.round(c.crit * 100)}%`);
       const cost = document.createElement('div');
       cost.className = 'char-cost';
 
@@ -138,6 +142,7 @@ export const Screens = {
         info.innerHTML =
           `<div class="char-name">${c.name}</div>` +
           `<div class="char-desc">${c.desc}</div>` +
+          (c.trait ? `<div class="char-trait">${c.trait}</div>` : '') +
           `<div class="char-attrs" style="font-size:12px;color:#8b9bb4;margin-top:2px;">${attrs.join(' · ')}</div>`;
         cost.innerHTML = owned ? '✔ 可用'
           : `🔒 ${c.cost} 金币${d.gold >= c.cost ? ' · 点击解锁' : ' · 金币不足'}`;

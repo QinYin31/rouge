@@ -6,14 +6,20 @@ import { drawSprite } from '../sprites.js?v=17';
 export const CHARACTERS = {
   knight: {
     name: '剑客', weapon: 'knife', sprite: 'hero_knight', hp: 120, might: 1.0, speed: 144, armor: 1,
+    damageTakenMult: 0.82,
+    trait: '铁壁：受到伤害 -18%',
     desc: '一剑风流,自带 1 点护甲 · 初始武功:剑气', cost: 0,
   },
   mage: {
     name: '道人', weapon: 'wand', sprite: 'hero_mage', hp: 80, might: 0.95, speed: 137, cdMult: 0.85,
+    areaMult: 1.18, xpMult: 1.12,
+    trait: '灵脉：技能范围 +18%，经验获取 +12%',
     desc: '御风之术,冷却 -15% · 初始武功:御风', cost: 300,
   },
   ranger: {
     name: '游侠', weapon: 'bow', sprite: 'hero_ranger', hp: 95, might: 1.0, speed: 163, magnet: 30,
+    crit: 0.20, critDmg: 1.75,
+    trait: '猎心：暴击率 20%，暴击伤害 175%',
     desc: '身法迅捷、拾取范围大 · 初始武功:贯日', cost: 800,
   },
 };
@@ -31,7 +37,15 @@ export class Player {
       mightMult: 1, cdMult: 1, hpFlat: 0, hpMult: 1, speedMult: 1,
       magnetFlat: 0, xpMult: 1, goldMult: 1, armorFlat: 0, areaMult: 1, regenFlat: 0,
     };
-    this.charBonus = { cdMult: c.cdMult || 1, magnetFlat: c.magnet || 0 };
+    this.charBonus = {
+      cdMult: c.cdMult || 1,
+      magnetFlat: c.magnet || 0,
+      areaMult: c.areaMult || 1,
+      xpMult: c.xpMult || 1,
+      damageTakenMult: c.damageTakenMult || 1,
+      crit: c.crit || 0.1,
+      critDmg: c.critDmg || 1.6,
+    };
     this.recalc();
     this.hp = this.stats.maxHp;
   }
@@ -45,10 +59,11 @@ export class Player {
       cdMult: this.charBonus.cdMult * b.cdMult,
       speed: c.speed * b.speedMult,
       magnet: 60 + this.charBonus.magnetFlat + b.magnetFlat,
-      xpMult: b.xpMult, goldMult: b.goldMult,
+      xpMult: this.charBonus.xpMult * b.xpMult, goldMult: b.goldMult,
       armor: c.armor + b.armorFlat,
-      areaMult: b.areaMult,
-      crit: 0.1, critDmg: 1.6,
+      areaMult: this.charBonus.areaMult * b.areaMult,
+      crit: this.charBonus.crit, critDmg: this.charBonus.critDmg,
+      damageTakenMult: this.charBonus.damageTakenMult,
       regen: b.regenFlat,
     };
     if (oldMax && this.stats.maxHp > oldMax) this.hp += this.stats.maxHp - oldMax;
@@ -103,7 +118,8 @@ export class Player {
 
   takeDamage(amount) {
     if (this.iframes > 0 || this.hp <= 0) return;
-    const dmg = Math.max(1, Math.round(amount - this.stats.armor));
+    const afterArmor = Math.max(1, amount - this.stats.armor);
+    const dmg = Math.max(1, Math.round(afterArmor * this.stats.damageTakenMult));
     this.hp -= dmg;
     this.iframes = 0.6; this.hurtT = 0.25;
     Bus.emit('hurt', dmg); // main 监听此事件做震屏/红晕

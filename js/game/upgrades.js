@@ -191,8 +191,8 @@ export function applyChoice(g, c) {
     }
     if (c.id === 'speed') p.dashCdMul = (p.dashCdMul || 1) * 0.96; // 疾风靴:冲刺冷却 -4%/级
     p.recalc();
-    // 暴击之眼:recalc 会重置 crit,故每次被动后按等级重写(基础 10% + 6%/级)
-    p.stats.crit = 0.1 + 0.06 * (g.passiveLv.crit || 0);
+    // 暴击之眼:recalc 后按角色基础暴击叠加(基础 10% + 6%/级)
+    p.stats.crit = (p.charBonus.crit || 0.1) + 0.06 * (g.passiveLv.crit || 0);
   } else if (c.kind === 'gold') {
     g.stats.gold += c.amount || 25;
   } else if (c.kind === 'heal') {
