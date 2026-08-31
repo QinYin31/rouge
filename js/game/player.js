@@ -111,6 +111,7 @@ export class Player {
   }
 
   addXp(n) {
+    const hadPending = this.pendingLevels > 0;
     this.xp += Math.round(n * this.stats.xpMult);
     let need = xpNeed(this.level);
     while (this.xp >= need) {
@@ -118,7 +119,7 @@ export class Player {
       this.pendingLevels++;
       need = xpNeed(this.level);
     }
-    if (this.pendingLevels > 0) Bus.emit('levelup', { level: this.level });
+    if (this.pendingLevels > 0 && !hadPending) Bus.emit('levelup', { level: this.level });
   }
 
   xpRatio() { return this.xp / xpNeed(this.level); }
