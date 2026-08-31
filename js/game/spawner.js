@@ -8,9 +8,9 @@ const TAU = Math.PI * 2;
 const POOLS = [
   [['slime', 6], ['bat', 3]],
   [['slime', 4], ['bat', 4], ['skeleton', 3]],
-  [['slime', 3], ['bat', 3], ['skeleton', 4], ['spider', 3]],
-  [['bat', 2], ['skeleton', 4], ['spider', 3], ['brute', 3], ['bomber', 3]],
-  [['skeleton', 3], ['spider', 3], ['brute', 4], ['bomber', 3], ['turtle', 2], ['wisp', 3]],
+  [['slime', 3], ['bat', 3], ['skeleton', 4], ['spider', 3], ['qinglu', 1]],
+  [['bat', 2], ['skeleton', 4], ['spider', 3], ['brute', 3], ['bomber', 3], ['qinglu', 2], ['mire', 1]],
+  [['skeleton', 3], ['spider', 3], ['brute', 4], ['bomber', 3], ['turtle', 2], ['wisp', 3], ['qinglu', 2], ['mire', 2], ['summoner', 1]],
 ];
 function poolIdx(t) { return t < 55 ? 0 : t < 120 ? 1 : t < 240 ? 2 : t < 360 ? 3 : 4; }
 

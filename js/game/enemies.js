@@ -11,7 +11,8 @@ import { Bus } from '../core/engine.js?v=17';
 // 防止退出到主菜单后后台仍在刷怪/结算/触发音效。
 export const combatState = { runActive: false };
 
-// beh: 0直线 1摆动 2直线 3突进 4直线(半减伤退) 5自爆 6直线(免疫击退) 7正弦 8快速追踪 9冲撞Boss 10弹幕Boss
+// beh: 0直线 1摆动 2直线 3突进 4直线(半减伤退) 5自爆 6直线(免疫击退) 7正弦 8快速追踪
+//      9冲撞Boss 10弹幕Boss 11远程弹幕 12区域威胁 13召唤辅助
 export const ENEMY_TYPES = {
   slime:         { name: '纸妖',     sprite: 'slime',         hp: 12,   speed: 40, dmg: 8,  r: 14, xp: 1,   coinP: 0.08, beh: 0,  col: '#63c74d', kb: 1 },
   bat:           { name: '夜枭',     sprite: 'bat',           hp: 9,    speed: 86, dmg: 6,  r: 11, xp: 1,   coinP: 0.06, beh: 1,  col: '#68386c', kb: 1 },
@@ -22,6 +23,9 @@ export const ENEMY_TYPES = {
   turtle:        { name: '铁甲龟',   sprite: 'turtle',        hp: 170,  speed: 17, dmg: 14, r: 17, xp: 6,   coinP: 0.16, beh: 6,  col: '#9ac1c9', kb: 0 },
   wisp:          { name: '青灯鬼火', sprite: 'wisp',          hp: 26,   speed: 58, dmg: 10, r: 11, xp: 3,   coinP: 0.08, beh: 7,  col: '#2ce8f5', kb: 1 },
   reaper:        { name: '黑无常',   sprite: 'reaper',        hp: 95,   speed: 68, dmg: 22, r: 18, xp: 8,   coinP: 0.25, beh: 8,  col: '#68386c', kb: 0.4 },
+  qinglu:        { name: '青炉',     sprite: 'wisp',      hp: 34,   speed: 46, dmg: 11, r: 13, xp: 3,   coinP: 0.12, beh: 11, col: '#e43b44', kb: 0.8 },
+  mire:          { name: '泥沼鬼',   sprite: 'spider',    hp: 58,   speed: 31, dmg: 14, r: 18, xp: 4,   coinP: 0.14, beh: 12, col: '#5fb8c4', kb: 0.7 },
+  summoner:      { name: '唤灵使',   sprite: 'reaper',    hp: 70,   speed: 29, dmg: 9,  r: 17, xp: 5,   coinP: 0.18, beh: 13, col: '#c9972f', kb: 0.65 },
   // Boss 实体模板基础数值；实际 Boss 生命由 boss.js 的 BOSS_DESIGNS 独立注入。
   boss_golem:    { name: '石像守卫', sprite: 'boss_golem',    hp: 2800, speed: 48, dmg: 30, r: 38, xp: 60,  coinP: 1,    beh: 9,  col: '#b55088', kb: 0.12, boss: 1 },
   boss_overlord: { name: '无常尊者', sprite: 'boss_overlord', hp: 12000, speed: 46, dmg: 36, r: 48, xp: 150, coinP: 1,    beh: 10, col: '#e43b44', kb: 0.05, boss: 1 },
@@ -48,6 +52,12 @@ const SYN = { synergy: 1, kx: 0, ky: 0 };        // 联动伤害(感电/环缘�
 
 // 蒸汽/连锁/环缘放电专用查询缓冲(与 g.qbuf 隔离,允许在 qbuf 迭代中嵌套查询)
 const QBX = [];
+// 特殊敌人的资源上限:避免弹幕/区域/召唤在高密度战斗中无限增长。
+const AURA_BUF = [];
+const MAX_ACTIVE_ENEMIES = 176;
+const MAX_ENEMY_PROJECTILES = 128;
+const MAX_ENEMY_ZONES = 24;
+const ENEMY_RECYCLE_D2 = 1100 * 1100;
 
 export function spawnEnemy(g, typeId, x, y, o = {}) {
   const t = ENEMY_TYPES[typeId];
@@ -70,11 +80,46 @@ export function spawnEnemy(g, typeId, x, y, o = {}) {
     status: { burn: 0, wet: 0 }, burnT: 0,          // 元素状态(秒):灼烧/墨湿
     flashT: 0, hitT: 0, kx: 0, ky: 0, hitCd: 0, orbCd: 0,
     t: Math.random() * 10, aiT: Math.random() * 2.4, state: 0, bossPhase: 0, atkCd: 2 + Math.random() * 2, atkN: 0,
-    fuse: -1, cx: 0, cy: 0, spd: 0,
+    fuse: -1, cx: 0, cy: 0, spd: 0, summoned: !!o.summoned,
+    aura: 0, auraT: 0, auraSpeedMult: 1,
     kbMult: t.kb !== undefined ? t.kb : 1,
   };
   g.addEnemy(e);
   return e;
+}
+
+function enemyProjectileCount(g) {
+  const prs = g.projectiles;
+  if (!prs) return MAX_ENEMY_PROJECTILES;
+  let n = 0;
+  for (let i = prs.length - 1; i >= 0; i--) {
+    if (prs[i].fromEnemy && ++n >= MAX_ENEMY_PROJECTILES) return n;
+  }
+  return n;
+}
+
+function addEnemyProjectile(g, projectile) {
+  if (!g.projectiles || !g.addProjectile || enemyProjectileCount(g) >= MAX_ENEMY_PROJECTILES) return false;
+  projectile.fromEnemy = 1;
+  g.addProjectile(projectile);
+  return true;
+}
+
+function enemyZoneCount(g) {
+  const zones = g.zones;
+  if (!zones) return MAX_ENEMY_ZONES;
+  let n = 0;
+  for (let i = zones.length - 1; i >= 0; i--) {
+    if (zones[i].enemyZone && ++n >= MAX_ENEMY_ZONES) return n;
+  }
+  return n;
+}
+
+function addEnemyZone(g, zone) {
+  if (!g.zones || !g.addZone || enemyZoneCount(g) >= MAX_ENEMY_ZONES) return false;
+  zone.enemyZone = 1;
+  g.addZone(zone);
+  return true;
 }
 
 // 震屏(尊重玩家设置;engine.save 由 main 注入)
@@ -277,22 +322,80 @@ function ringBullets(g, x, y, n, spd, dmg) {
   const off = Math.random() * TAU;
   for (let i = 0; i < n; i++) {
     const a = off + (i / n) * TAU;
-    g.addProjectile({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg, life: 5, fromEnemy: 1, sprite: 'w_bolt', tint: '#e43b44', rot: a });
+    addEnemyProjectile(g, { x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg, life: 5, fromEnemy: 1, sprite: 'w_bolt', tint: '#e43b44', rot: a });
   }
 }
 function fanBullets(g, x, y, aim, n, spread, spd, dmg) {
   for (let i = 0; i < n; i++) {
     const a = aim + (i - (n - 1) / 2) * spread;
-    g.addProjectile({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg, life: 5, fromEnemy: 1, sprite: 'w_bolt', tint: '#e43b44', rot: a });
+    addEnemyProjectile(g, { x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, r: 6, dmg, life: 5, fromEnemy: 1, sprite: 'w_bolt', tint: '#e43b44', rot: a });
+  }
+}
+
+function fireEnemyBolt(g, e, tx, ty) {
+  const dx = tx - e.x, dy = ty - e.y;
+  const d = Math.sqrt(dx * dx + dy * dy) || 1;
+  const a = Math.atan2(dy, dx);
+  const dmg = Math.max(1, Math.round(Math.min(40, e.dmg * 0.75)));
+  return addEnemyProjectile(g, {
+    x: e.x, y: e.y, vx: (dx / d) * 235, vy: (dy / d) * 235,
+    r: 6, dmg, life: 5, fromEnemy: 1, sprite: 'w_bolt', tint: '#e43b44', rot: a,
+  });
+}
+
+function placeMireZone(g, e, px, py) {
+  const a = Math.random() * TAU;
+  const dist = 42 + Math.random() * 78;
+  const tickDmg = Math.max(4, Math.min(32, Math.round(e.dmg * 0.45)));
+  return addEnemyZone(g, {
+    x: px + Math.cos(a) * dist, y: py + Math.sin(a) * dist,
+    r: 78, life: 3.2, maxLife: 3.2,
+    tickDmg, tick: 0.55, tickT: 0.2,
+    playerTickDmg: tickDmg, playerTick: 0.55, playerTickT: 0.2,
+    sprite: 'zone_holy', tint: '#68386c',
+  });
+}
+
+function summonEnemy(g, e) {
+  if (!g.enemies || g.enemies.length >= MAX_ACTIVE_ENEMIES) return null;
+  const type = e.atkN++ % 2 === 0 ? 'slime' : 'bat';
+  const a = Math.random() * TAU;
+  const dist = 34 + Math.random() * 24;
+  const parentHpMult = Number.isFinite(e.hpMult) ? e.hpMult : 1;
+  const hpMult = Math.max(0.8, Math.min(8, parentHpMult * 0.5));
+  return spawnEnemy(g, type, e.x + Math.cos(a) * dist, e.y + Math.sin(a) * dist, {
+    hpMult, dmgMult: Number.isFinite(e.dmgMult) ? e.dmgMult : 1,
+    speedMult: 1.05, mini: true, summoned: true,
+  });
+}
+
+function buffNearbyEnemies(g, e, dt) {
+  if (!g.grid || !g.grid.query) return;
+  const radius = 220;
+  const near = g.grid.query(e.x, e.y, radius, AURA_BUF);
+  let targets = 0;
+  for (let k = 0; k < near.length && targets < 18; k++) {
+    const o = near[k];
+    if (o === e || o.dead || o.boss) continue;
+    const dx = o.x - e.x, dy = o.y - e.y;
+    const rr = radius + o.r;
+    if (dx * dx + dy * dy > rr * rr) continue;
+    o.aura = 1;
+    o.auraT = Math.max(o.auraT || 0, 0.24);
+    o.auraSpeedMult = Math.max(o.auraSpeedMult || 1, 1.18);
+    if (Number.isFinite(o.hp) && Number.isFinite(o.maxHp) && o.hp > 0 && o.hp < o.maxHp) {
+      o.hp = Math.min(o.maxHp, o.hp + Math.max(0.2, o.maxHp * 0.025 * dt));
+    }
+    targets++;
   }
 }
 
 function summonBossAdds(g, e, phase) {
-  if (!g.enemies || g.enemies.length >= 176) return;
+  if (!g.enemies || g.enemies.length >= MAX_ACTIVE_ENEMIES) return;
   const type = phase === 2 ? 'wisp' : 'reaper';
   const count = phase === 2 ? 3 : 4;
   const hpMult = phase === 2 ? 2.4 : 2.2;
-  for (let i = 0; i < count && g.enemies.length < 176; i++) {
+  for (let i = 0; i < count && g.enemies.length < MAX_ACTIVE_ENEMIES; i++) {
     const a = (i / count) * TAU + Math.random() * 0.35;
     spawnEnemy(g, type, e.x + Math.cos(a) * 105, e.y + Math.sin(a) * 105, {
       hpMult, dmgMult: 1.15, speedMult: 1.12,
@@ -393,11 +496,25 @@ export function initCombat(g) {
       const z = g.zones[i];
       z.life -= dt;
       if (z.life <= 0) { g.remove(g.zones, i); continue; }
+      if (z.enemyZone && p) {
+        const fx = p.x - z.x, fy = p.y - z.y;
+        if (fx * fx + fy * fy > ENEMY_RECYCLE_D2) { g.remove(g.zones, i); continue; }
+        const rr = z.r + 13;
+        if (fx * fx + fy * fy < rr * rr) {
+          const tick = Number.isFinite(z.playerTick) && z.playerTick > 0 ? z.playerTick : 0.55;
+          const dmg = Number.isFinite(z.playerTickDmg) && z.playerTickDmg > 0 ? z.playerTickDmg : z.tickDmg;
+          z.playerTickT = Number.isFinite(z.playerTickT) ? z.playerTickT - dt : 0;
+          if (z.playerTickT <= 0) {
+            z.playerTickT += tick;
+            if (p.takeDamage && Number.isFinite(dmg) && dmg > 0) p.takeDamage(dmg);
+          }
+        }
+      }
       if (z.burnOn && Math.random() < dt * 6 && g.inView(z.x, z.y, z.r + 40)) { // 火区火星
         g.addParticles(z.x + (Math.random() - 0.5) * z.r, z.y + (Math.random() - 0.5) * z.r * 0.7,
           { n: 1, color: '#d9662e', speed: 30, life: 0.4, size: 3, grav: -40 });
       }
-      if (z.tickDmg > 0) {
+      if (z.tickDmg > 0 && !z.enemyZone) {
         z.tickT -= dt;
         if (z.tickT <= 0) {
           z.tickT = z.tick;
@@ -429,6 +546,10 @@ export function initCombat(g) {
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
       const ux = dx / d, uy = dy / d;
       let vx = ux * e.speed, vy = uy * e.speed;
+      const auraSpeed = e.auraT > 0 ? (e.auraSpeedMult || 1) : 1;
+      vx *= auraSpeed; vy *= auraSpeed;
+      e.auraT = Math.max(0, (e.auraT || 0) - dt);
+      if (e.auraT <= 0) e.auraSpeedMult = 1;
       switch (e.beh) {
         case 1: { // 夜枭:快速小幅摆动
           const s = Math.sin(e.t * 7) * 36;
@@ -451,6 +572,37 @@ export function initCombat(g) {
         case 7: { // 青灯鬼火:正弦飘忽轨迹
           const s = Math.sin(e.t * 2.8) * 52;
           vx = ux * e.speed - uy * s; vy = uy * e.speed + ux * s;
+          break;
+        }
+        case 11: { // ??:??????????????
+          const keep = 280;
+          if (d < keep) { vx *= -0.65; vy *= -0.65; }
+          e.atkCd -= dt;
+          if (e.atkCd <= 0 && d < 760) {
+            fireEnemyBolt(g, e, px, py);
+            e.atkCd = 2.2 + Math.random() * 0.8;
+            g.addParticles(e.x, e.y, { n: 4, color: '#e43b44', speed: 70, life: 0.35, size: 3 });
+          }
+          break;
+        }
+        case 12: { // ???:??????????????
+          e.atkCd -= dt;
+          if (e.atkCd <= 0 && d < 700) {
+            placeMireZone(g, e, px, py);
+            e.atkCd = 3.8 + Math.random() * 1.4;
+            g.addParticles(px, py, { n: 7, color: '#68386c', speed: 55, life: 0.45, size: 4 });
+          }
+          break;
+        }
+        case 13: { // ???:??????????????
+          if (d < 260) { vx *= -0.35; vy *= -0.35; }
+          e.atkCd -= dt;
+          if (e.atkCd <= 0) {
+            if (g.enemies.length < MAX_ACTIVE_ENEMIES) summonEnemy(g, e);
+            e.atkCd = 5.4 + Math.random() * 1.6;
+            g.addParticles(e.x, e.y, { n: 6, color: '#c9972f', speed: 75, life: 0.5, size: 3 });
+          }
+          buffNearbyEnemies(g, e, dt);
           break;
         }
         case 9: { // 石像守卫：蓄力冲锋 + 二阶段碎地冲击
