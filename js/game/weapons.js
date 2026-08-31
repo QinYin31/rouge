@@ -14,7 +14,7 @@ import { Bus } from '../core/engine.js?v=17';
 import { drawSprite, has } from '../sprites.js?v=17';
 import { damageEnemy, applyStatus, chainLightning } from './enemies.js?v=17';
 
-export const WEAPON_ORDER = ['knife', 'wand', 'bow', 'orb', 'lightning', 'fireball', 'boomerang', 'holy', 'shield'];
+export const WEAPON_ORDER = ['knife', 'wand', 'bow', 'orb', 'lightning', 'fireball', 'boomerang', 'holy', 'shield', 'fan', 'needle', 'lantern'];
 export const MAX_WEAPONS = 4; // 同时持有武器上限(含初始武器)
 
 const TAU = Math.PI * 2;
@@ -105,6 +105,29 @@ export const WEAPONS = {
     lvText: ['金钟震荡,推开来敌(半径 150)', '钟域扩大 +20%,击退增强,伤害 +14%', '钟域扩大 +19%,钟鸣更急,伤害 +13%', '钟域扩大 +18%,击退增强,伤害 +11%', '钟域大扩 +17%,钟鸣更急,伤害 +15%'],
     evo: { passive: 'crit', icon: 'w_shield_evo', evoName: '雷动金钟', desc: '钟鸣频率倍增,环缘雷光放电更远更频' },
   },
+
+  fan: {
+    name: '流云扇', icon: 'w_boomerang', maxLv: 5,
+    desc: '折扇卷起多重风刃,命中后留下风痕',
+    base: { dmg: [13, 15, 17, 20, 23], cd: [1.7, 1.55, 1.4, 1.25, 1.1], n: [3, 4, 5, 6, 7], spread: [0.5, 0.58, 0.66, 0.75, 0.84], spd: [480, 500, 525, 550, 580], life: [1.15, 1.2, 1.25, 1.3, 1.4], pierce: [0, 0, 1, 1, 2] },
+    lvText: ['扇出 3 道流云风刃', '+1 风刃,扇面扩大', '+1 风刃,风刃穿透 +1', '+1 风刃,弹速与射程提升', '+1 风刃,穿透 +1,冷却缩短'],
+    evo: { passive: 'guard', icon: 'w_boomerang_evo', evoName: '千面流风', desc: '九道风刃回旋成阵,风痕叠加后爆裂' },
+  },
+  needle: {
+    name: '暴雨针', icon: 'w_arrow', maxLv: 5,
+    desc: '弹指洒出密集飞针,专破风痕妖邪',
+    base: { dmg: [8, 9, 10, 12, 14], cd: [1.35, 1.22, 1.1, 0.98, 0.86], n: [5, 6, 7, 8, 9], spread: [0.7, 0.78, 0.86, 0.94, 1.02], spd: [560, 580, 600, 625, 650], life: [1.25, 1.3, 1.35, 1.4, 1.45], pierce: [0, 0, 0, 1, 1] },
+    lvText: ['散出 5 枚暴雨针', '+1 飞针,散射面扩大', '+1 飞针,弹速提升', '+1 飞针,获得穿透', '+1 飞针,冷却缩短,破风伤害提升'],
+    evo: { passive: 'retaliate', icon: 'w_bow_evo', evoName: '万针归潮', desc: '暴雨化作漫天针阵,击中风痕之敌便引潮爆发' },
+  },
+  lantern: {
+    name: '引魂灯', icon: 'w_flask', maxLv: 5,
+    desc: '放出青灯落在敌阵,持续灼魂并泼洒墨湿',
+    base: { dmg: [5, 6, 7, 8, 10], cd: [2.4, 2.2, 2.0, 1.8, 1.6], n: [1, 1, 2, 2, 3], r: [58, 66, 74, 84, 94], dur: [2.4, 2.8, 3.2, 3.6, 4.0], tick: [0.38, 0.36, 0.34, 0.32, 0.3], spd: [240, 250, 260, 270, 280] },
+    lvText: ['投下一盏青灯,留下持续 2.4 秒的魂火', '魂火半径 +8,持续 +0.4 秒', '+1 青灯,灼魂频率提升', '魂火半径 +10,持续 +0.4 秒', '+1 青灯,冷却缩短,魂火更密'],
+    evo: { passive: 'fortify', icon: 'w_holy_evo', evoName: '万魂引渡', desc: '青灯遍照四方,魂火领域扩大并反哺护体' },
+  },
+
 };
 
 // 进化形态数值表(v2.2:覆盖同步放大——数量/半径/连锁/火区全面加码,伤害微调;
@@ -119,6 +142,11 @@ const EVO = {
   boomerang: { n: 4, cd: 1.05, dmg: 96, spd: 610, r: 18, retMult: 2 }, // 四枚巨刃
   holy:      { r: 185, dmg: 46, tick: 0.32 }, // 墨域大扩 + 跳伤更频
   shield:    { cd: 0.95, dmg: 82, maxR: 300, grow: 520, zapCd: 0.18, zapMult: 0.5, zapN: 3 }, // 钟域更大,环缘放电 3 敌
+
+  fan:       { n: 9, cd: 0.8, dmg: 42, spread: 1.15, spd: 650, life: 1.55, pierce: 3 },
+  needle:    { n: 13, cd: 0.52, dmg: 30, spread: 1.25, spd: 760, life: 1.7, pierce: 2 },
+  lantern:   { n: 4, cd: 1.15, dmg: 18, r: 132, dur: 5.4, tick: 0.22, spd: 330 },
+
 };
 
 // --- 射击音效节流:最多 80ms 一次,避免爆音 ---
@@ -127,6 +155,80 @@ function sfxShoot() {
   const n = performance.now();
   if (n - lastShoot >= 80) { lastShoot = n; Bus.emit('sfx', 'shoot'); }
 }
+
+
+const SYN = { synergy: 1, kx: 0, ky: 0 };
+const comboClock = new WeakMap();
+function combatNow(g) { return Number.isFinite(g && g.time) ? g.time : 0; }
+function ownsWeapon(p, id) { return !!(p && p.weapons && p.weapons.some(w => w.id === id)); }
+function comboText(g, id, x, y, label) {
+  if (!g || !g.spawnText) return;
+  const now = combatNow(g), clock = comboClock.get(g) || {};
+  if ((clock[id] || -1) > now) return;
+  clock[id] = now + 0.7; comboClock.set(g, clock);
+  g.spawnText(x, y - 28, label, { color: '#4da7b4', size: 16, life: 1.0 });
+  if (g.addParticles) g.addParticles(x, y, { n: 7, color: '#5fb8c4', speed: 105, life: 0.35, size: 3 });
+}
+function markNearby(g, x, y, radius, key, duration) {
+  if (!g || !g.grid) return;
+  const until = combatNow(g) + duration, near = g.grid.query(x, y, radius, QB);
+  for (const e of near) {
+    if (!e || e.dead) continue;
+    const dx = e.x - x, dy = e.y - y, rr = radius + e.r;
+    if (dx * dx + dy * dy <= rr * rr) e[key] = Math.max(e[key] || 0, until);
+  }
+}
+function findMarked(g, x, y, radius, key) {
+  if (!g || !g.grid) return null;
+  const now = combatNow(g), near = g.grid.query(x, y, radius, QB);
+  let best = null, bd = radius * radius;
+  for (const e of near) {
+    if (!e || e.dead || (e[key] || 0) <= now) continue;
+    const dx = e.x - x, dy = e.y - y, d2 = dx * dx + dy * dy;
+    if (d2 < bd) { bd = d2; best = e; }
+  }
+  return best;
+}
+function triggerFanNeedle(g, focus, dmg) {
+  if (!focus || focus.dead || !ownsWeapon(g.player, 'fan') || !ownsWeapon(g.player, 'needle')) return;
+  const near = g.grid.query(focus.x, focus.y, 150, QB);
+  let hits = 0;
+  for (const e of near) {
+    if (!e || e.dead || (e.fanMarkUntil || 0) <= combatNow(g)) continue;
+    const dx = e.x - focus.x, dy = e.y - focus.y, rr = 150 + e.r;
+    if (dx * dx + dy * dy > rr * rr) continue;
+    SYN.kx = dx; SYN.ky = dy;
+    damageEnemy(g, e, Math.max(1, dmg * 0.72), SYN);
+    e.fanMarkUntil = 0;
+    if (++hits >= 4) break;
+  }
+  if (hits) comboText(g, 'fanNeedle', focus.x, focus.y, '扇针合流!');
+}
+let defenseHookOn = false;
+function ensureDefenseHook() {
+  if (defenseHookOn) return;
+  defenseHookOn = true;
+  Bus.on('player-hurt', info => {
+    const p = info && info.player, g = (info && info.g) || (p && p._g);
+    if (!p || !g || !p.reflectRatio || !g.grid) return;
+    const now = combatNow(g);
+    if ((p.reflectAt || 0) > now) return;
+    p.reflectAt = now + 0.32;
+    const near = g.grid.query(p.x, p.y, 118, QB);
+    let hits = 0;
+    for (const e of near) {
+      if (!e || e.dead) continue;
+      const dx = e.x - p.x, dy = e.y - p.y, rr = 118 + e.r;
+      if (dx * dx + dy * dy > rr * rr) continue;
+      const dd = Math.sqrt(dx * dx + dy * dy) || 1;
+      SYN.kx = dx / dd * 90; SYN.ky = dy / dd * 90;
+      damageEnemy(g, e, Math.max(1, (info.mitigated || 1) * p.reflectRatio), SYN);
+      if (++hits >= 4) break;
+    }
+    if (hits && g.spawnText) comboText(g, 'retaliate', p.x, p.y, '反震!');
+  });
+}
+ensureDefenseHook();
 
 // 最近敌人(平方距离比较,零分配)
 function nearestEnemy(g, x, y, maxR) {
@@ -379,6 +481,40 @@ export function makeWeapon(id) {
             sfxShoot();
             return;
           }
+          case 'fan': {
+            const c = EVO.fan, e = nearestEnemy(g, p.x, p.y, 700);
+            const a0 = e ? Math.atan2(e.y - p.y, e.x - p.x) : (p.facing < 0 ? Math.PI : 0);
+            this.timer = c.cd * p.stats.cdMult;
+            for (let i = 0; i < c.n; i++) {
+              const a = a0 + (i - (c.n - 1) / 2) * (c.spread / Math.max(1, c.n - 1));
+              g.addProjectile({ x: p.x, y: p.y, vx: Math.cos(a) * c.spd, vy: Math.sin(a) * c.spd, r: 12, dmg: c.dmg * p.stats.might, life: c.life, pierce: c.pierce, rot: a, sprite: 'w_boomerang_evo', spin: 15 });
+            }
+            if (e && ownsWeapon(p, 'needle')) markNearby(g, e.x, e.y, 112, 'fanMarkUntil', 2.5);
+            sfxShoot(); return;
+          }
+          case 'needle': {
+            const c = EVO.needle, e = nearestEnemy(g, p.x, p.y, 720);
+            const a0 = e ? Math.atan2(e.y - p.y, e.x - p.x) : (p.facing < 0 ? Math.PI : 0);
+            this.timer = c.cd * p.stats.cdMult;
+            for (let i = 0; i < c.n; i++) {
+              const a = a0 + (i - (c.n - 1) / 2) * (c.spread / Math.max(1, c.n - 1));
+              g.addProjectile({ x: p.x, y: p.y, vx: Math.cos(a) * c.spd, vy: Math.sin(a) * c.spd, r: 7, dmg: c.dmg * p.stats.might, life: c.life, pierce: c.pierce, rot: a, sprite: 'w_bow_evo' });
+            }
+            triggerFanNeedle(g, findMarked(g, p.x, p.y, 720, 'fanMarkUntil'), c.dmg * p.stats.might);
+            sfxShoot(); return;
+          }
+          case 'lantern': {
+            const c = EVO.lantern, e = nearestEnemy(g, p.x, p.y, 720);
+            const a0 = e ? Math.atan2(e.y - p.y, e.x - p.x) : Math.random() * TAU;
+            this.timer = c.cd * p.stats.cdMult;
+            for (let i = 0; i < c.n; i++) {
+              const a = a0 + (i - (c.n - 1) / 2) * 0.34;
+              g.addProjectile({ x: p.x, y: p.y, vx: Math.cos(a) * c.spd, vy: Math.sin(a) * c.spd, r: 9, dmg: 0, life: 0.7, pierce: 0, rot: a, sprite: 'w_holy_evo', ghost: 1, zone: { x: 0, y: 0, r: c.r * p.stats.areaMult, life: c.dur, maxLife: c.dur, tickDmg: c.dmg * p.stats.might, tick: c.tick, tickT: c.tick, sprite: 'zone_holy', wetOn: 1 } });
+            }
+            if (e) markNearby(g, e.x, e.y, c.r * p.stats.areaMult, 'lanternMarkUntil', 2.3);
+            if (ownsWeapon(p, 'shield') && p.gainShield) { p.gainShield(14); comboText(g, 'lanternShield', p.x, p.y, '灯护金钟!'); }
+            sfxShoot(); return;
+          }
           case 'shield': { // 雷动金钟:冲击环频率×2 + 环缘放电
             const c = EVO.shield;
             this.timer = c.cd * p.stats.cdMult;
@@ -473,6 +609,12 @@ export function makeWeapon(id) {
             const dmg = b.dmg[L] * p.stats.might;
             damageEnemy(g, e, dmg, KB0);
             const st = e.status; // 感电连锁:五雷击中湿身之敌,电弧跳跃更远更强(墨雨协同)
+            if ((e.lanternMarkUntil || 0) > combatNow(g)) {
+              SYN.kx = 0; SYN.ky = 0;
+              damageEnemy(g, e, dmg * 0.65, SYN);
+              comboText(g, 'lanternLightning', e.x, e.y, '引魂雷印!');
+              e.lanternMarkUntil = 0;
+            }
             if (st && st.wet > 0) chainLightning(g, e, dmg * 0.6, 3, 140);
             else if (b.chainN[L] > 0) chainLightning(g, e, dmg * 0.5, b.chainN[L], b.chainR); // v2.2:高等级自带连锁
             g.addZone({ x: e.x, y: e.y, r: 0, life: 0.28, maxLife: 0.28, tickDmg: 0, sprite: 'lightning_v' });
@@ -565,6 +707,40 @@ export function makeWeapon(id) {
           }
           sfxShoot();
           break;
+        }
+        case 'fan': {
+          const e = nearestEnemy(g, p.x, p.y, 680);
+          const a0 = e ? Math.atan2(e.y - p.y, e.x - p.x) : (p.facing < 0 ? Math.PI : 0);
+          this.timer = b.cd[L] * p.stats.cdMult;
+          for (let i = 0; i < b.n[L]; i++) {
+            const a = a0 + (i - (b.n[L] - 1) / 2) * (b.spread[L] / Math.max(1, b.n[L] - 1));
+            g.addProjectile({ x: p.x, y: p.y, vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: 10, dmg: b.dmg[L] * p.stats.might, life: b.life[L], pierce: b.pierce[L], rot: a, sprite: 'w_boomerang', spin: 14 });
+          }
+          if (e && ownsWeapon(p, 'needle')) markNearby(g, e.x, e.y, 98, 'fanMarkUntil', 2.5);
+          sfxShoot(); break;
+        }
+        case 'needle': {
+          const e = nearestEnemy(g, p.x, p.y, 700);
+          const a0 = e ? Math.atan2(e.y - p.y, e.x - p.x) : (p.facing < 0 ? Math.PI : 0);
+          this.timer = b.cd[L] * p.stats.cdMult;
+          for (let i = 0; i < b.n[L]; i++) {
+            const a = a0 + (i - (b.n[L] - 1) / 2) * (b.spread[L] / Math.max(1, b.n[L] - 1));
+            g.addProjectile({ x: p.x, y: p.y, vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: 7, dmg: b.dmg[L] * p.stats.might, life: b.life[L], pierce: b.pierce[L], rot: a, sprite: 'w_arrow' });
+          }
+          triggerFanNeedle(g, findMarked(g, p.x, p.y, 700, 'fanMarkUntil'), b.dmg[L] * p.stats.might);
+          sfxShoot(); break;
+        }
+        case 'lantern': {
+          const e = nearestEnemy(g, p.x, p.y, 700);
+          const a0 = e ? Math.atan2(e.y - p.y, e.x - p.x) : Math.random() * TAU;
+          this.timer = b.cd[L] * p.stats.cdMult;
+          for (let i = 0; i < b.n[L]; i++) {
+            const a = a0 + (i - (b.n[L] - 1) / 2) * 0.34;
+            g.addProjectile({ x: p.x, y: p.y, vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: 8, dmg: 0, life: 0.7, pierce: 0, rot: a, sprite: 'w_flask', ghost: 1, zone: { x: 0, y: 0, r: b.r[L] * p.stats.areaMult, life: b.dur[L], maxLife: b.dur[L], tickDmg: b.dmg[L] * p.stats.might, tick: b.tick[L], tickT: b.tick[L], sprite: 'zone_holy', wetOn: 1 } });
+          }
+          if (e) markNearby(g, e.x, e.y, b.r[L] * p.stats.areaMult, 'lanternMarkUntil', 2.3);
+          if (ownsWeapon(p, 'shield') && p.gainShield) { p.gainShield(8 + L * 2); comboText(g, 'lanternShield', p.x, p.y, '灯护金钟!'); }
+          sfxShoot(); break;
         }
         case 'shield': { // 金钟罩:快速扩张的冲击环弹体(v2.2:钟域半径/频率/击退成长)
           this.timer = b.cd[L] * p.stats.cdMult;

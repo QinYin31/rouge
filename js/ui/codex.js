@@ -55,6 +55,29 @@ const LINKS = [
     desc: '燃身之敌倒下时,原地留下一片灼灼燃烧的火区,经久不熄。',
     cond: '焚天系点燃之敌死亡时自动触发',
   },
+  {
+    kind: 'link', id: 'fanNeedle', anim: 'chain', name: '扇针合流', glyph: 'chain',
+    inputs: [{ sprite: 'w_boomerang', label: '流云扇' }, { sprite: 'w_arrow', label: '暴雨针' }],
+    sub: '流云扇 + 暴雨针',
+    desc: '风刃留下风痕,飞针命中风痕之敌时引发潮刃爆发,并波及附近敌人。',
+    cond: '同时持有流云扇与暴雨针,飞针命中风痕敌人时触发',
+  },
+  {
+    kind: 'link', id: 'lanternLightning', anim: 'chain', name: '引魂雷印', glyph: 'chain',
+    inputs: [{ sprite: 'w_flask', label: '引魂灯' }, { sprite: 'lightning_v', label: '五雷' }],
+    sub: '引魂灯 + 五雷',
+    desc: '引魂灯标记敌人,五雷命中时引爆雷印,追加一次青雷伤害。',
+    cond: '同时持有引魂灯与五雷,雷击标记敌人时触发',
+  },
+  {
+    kind: 'link', id: 'lanternShield', anim: 'yinyang', name: '灯护金钟', glyph: 'chain',
+    inputs: [{ sprite: 'w_flask', label: '引魂灯' }, { sprite: 'w_shield', label: '金钟罩' }],
+    sub: '引魂灯 + 金钟罩',
+    desc: '引魂灯落地时为侠客补充护盾,让持续作战更有容错。',
+    desc: '?????????????,??????????',
+    cond: '???????????,??????????',
+    cond: '同时持有引魂灯与金钟罩,引魂灯释放时获得护盾',
+  },
 ];
 const TABS = [
   { id: 'evo', name: '进化绝学', items: EVOS },

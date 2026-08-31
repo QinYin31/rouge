@@ -21,6 +21,9 @@ export const PASSIVES = {
   gold:   { name: '聚宝袋',   icon: 'p_gold',   maxLv: 5, desc: '财气随身,金币获取 +15%/级' },
   armor:  { name: '铁甲',     icon: 'p_armor',  maxLv: 5, desc: '金钟罩体,护甲 +1/级' },
   crit:   { name: '暴击之眼', icon: 'p_crit',   maxLv: 5, desc: '慧眼窥破绽,暴击率 +6%/级' },
+  guard:  { name: '玄武盾',   icon: 'p_armor',  maxLv: 5, desc: '玄武护体,护盾上限 +18/级并缓慢回复' },
+  fortify:{ name: '金刚体',   icon: 'p_hp',     maxLv: 5, desc: '金刚淬骨,受到伤害 -6%/级' },
+  retaliate:{ name: '反震诀', icon: 'p_crit',   maxLv: 5, desc: '借力打力,所受伤害的 12% 反伤近敌/级' },
 };
 
 const PASSIVE_BONUS = {
@@ -32,6 +35,7 @@ const PASSIVE_BONUS = {
   xp:     { key: 'xpMult',     mode: 'mult', v: 0.10 },
   gold:   { key: 'goldMult',   mode: 'mult', v: 0.15 },
   armor:  { key: 'armorFlat',  mode: 'add',  v: 1 },
+  fortify:{ key: 'damageTakenMult', mode: 'mult', v: -0.06 },
   // crit 无 bonuses 槽:applyChoice 在 recalc 后按等级直接写入 p.stats.crit
 };
 
@@ -67,6 +71,12 @@ function recFor(g, c, plv) {
       if (own('fireball')) return '联动·阴阳相激';
       if (own('lightning')) return '联动·感电连锁';
     } else if (c.id === 'lightning' && own('holy')) return '联动·感电连锁';
+    if (c.id === 'fan' && own('needle')) return '联动·扇针合流';
+    if (c.id === 'needle' && own('fan')) return '联动·扇针合流';
+    if (c.id === 'lantern' && own('lightning')) return '联动·引魂雷印';
+    if (c.id === 'lightning' && own('lantern')) return '联动·引魂雷印';
+    if (c.id === 'lantern' && own('shield')) return '联动·灯护金钟';
+    if (c.id === 'shield' && own('lantern')) return '联动·灯护金钟';
     return null;
   }
   if (c.kind === 'evolve' && c.id === 'holy') { // 墨染乾坤进化卡与协同标记共存(evolve 排序仍在前)
@@ -177,6 +187,11 @@ export function applyChoice(g, c) {
       else bon[b.key] += b.v;
     }
     if (c.id === 'speed') p.dashCdMul = (p.dashCdMul || 1) * 0.96; // 疾风靴:冲刺冷却 -4%/级
+    if (c.id === 'guard' && p.addShieldCapacity) {
+      p.addShieldCapacity(18);
+      p.shieldRegen = (p.shieldRegen || 0) + 0.6;
+    }
+    if (c.id === 'retaliate') p.reflectRatio = Math.min(0.7, (p.reflectRatio || 0) + 0.12);
     p.recalc();
     // 暴击之眼:recalc 后按角色基础暴击叠加(基础 10% + 6%/级)
     p.stats.crit = (p.charBonus.crit || 0.1) + 0.06 * (g.passiveLv.crit || 0);

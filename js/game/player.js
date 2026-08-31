@@ -33,9 +33,16 @@ export class Player {
     this.level = 1; this.xp = 0; this.pendingLevels = 0;
     this.weapons = [];
     this.dash = { t: 0, cd: 0, dur: 0.18, dx: 1, dy: 0 };
+    // 防御类内功状态：护盾优先吸收伤害，反伤由 weapons.js 监听 player-hurt 事件结算。
+    this.shield = 0;
+    this.shieldMax = 0;
+    this.shieldRegen = 0;
+    this.reflectRatio = 0;
+    this._g = null;
     this.bonuses = {
       mightMult: 1, cdMult: 1, hpFlat: 0, hpMult: 1, speedMult: 1,
       magnetFlat: 0, xpMult: 1, goldMult: 1, armorFlat: 0, areaMult: 1, regenFlat: 0,
+      damageTakenMult: 1,
     };
     this.charBonus = {
       cdMult: c.cdMult || 1,
@@ -55,6 +62,7 @@ export class Player {
     const oldMax = this.stats ? this.stats.maxHp : 0;
     const computedMaxHp = Math.round((c.hp + b.hpFlat) * b.hpMult);
     const maxHp = Number.isFinite(computedMaxHp) && computedMaxHp > 0 ? computedMaxHp : Math.max(1, c.hp);
+    const takenMult = (this.charBonus.damageTakenMult || 1) * (b.damageTakenMult || 1);
     this.stats = {
       maxHp,
       might: c.might * b.mightMult,
@@ -65,15 +73,39 @@ export class Player {
       armor: c.armor + b.armorFlat,
       areaMult: this.charBonus.areaMult * b.areaMult,
       crit: this.charBonus.crit, critDmg: this.charBonus.critDmg,
-      damageTakenMult: this.charBonus.damageTakenMult,
+      damageTakenMult: Number.isFinite(takenMult) ? Math.max(0.25, takenMult) : 1,
       regen: b.regenFlat,
     };
     if (!Number.isFinite(this.hp)) this.hp = this.stats.maxHp;
     if (oldMax && this.stats.maxHp > oldMax) this.hp += this.stats.maxHp - oldMax;
     if (this.hp > this.stats.maxHp) this.hp = this.stats.maxHp;
+    if (!Number.isFinite(this.shieldMax) || this.shieldMax < 0) this.shieldMax = 0;
+    if (!Number.isFinite(this.shield) || this.shield < 0) this.shield = 0;
+    if (this.shield > this.shieldMax) this.shield = this.shieldMax;
+  }
+
+  // 增加永久护盾容量并立即补满新增部分。
+  addShieldCapacity(amount) {
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    this.shieldMax += n;
+    const before = this.shield;
+    this.shield = Math.min(this.shieldMax, this.shield + n);
+    return this.shield - before;
+  }
+
+  // 组合技使用：没有防御被动时也能建立一个可用的小型护盾。
+  gainShield(amount) {
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    this.shieldMax = Math.max(this.shieldMax, n);
+    const before = this.shield;
+    this.shield = Math.min(this.shieldMax, this.shield + n);
+    return this.shield - before;
   }
 
   update(dt, g) {
+    this._g = g;
     const mv = Input.move();
     this.moving = mv.x !== 0 || mv.y !== 0;
 
@@ -112,6 +144,9 @@ export class Player {
     if (this.stats.regen > 0 && this.hp < this.stats.maxHp) {
       this.hp = Math.min(this.stats.maxHp, this.hp + this.stats.regen * dt);
     }
+    if (this.shieldRegen > 0 && this.shield < this.shieldMax) {
+      this.shield = Math.min(this.shieldMax, this.shield + this.shieldRegen * dt);
+    }
     g.cam.follow(this.x, this.y, dt);
     for (const w of this.weapons) w.update(dt, g);
   }
@@ -122,17 +157,27 @@ export class Player {
   takeDamage(amount) {
     if (!Number.isFinite(this.hp)) this.hp = Number.isFinite(this.stats.maxHp) ? this.stats.maxHp : 1;
     if (this.iframes > 0 || this.hp <= 0) return;
+    if (!Number.isFinite(this.shield) || this.shield < 0) this.shield = 0;
     const rawAmount = Number(amount);
     const safeAmount = Number.isFinite(rawAmount) ? rawAmount : 1;
     const afterArmor = Math.max(1, safeAmount - this.stats.armor);
     const scaled = afterArmor * this.stats.damageTakenMult;
-    const dmg = Number.isFinite(scaled) ? Math.max(1, Math.round(scaled)) : 1;
-    this.hp = Math.max(0, this.hp - dmg);
-    this.iframes = 0.6; this.hurtT = 0.25;
-    Bus.emit('hurt', dmg); // main 监听此事件做震屏/红晕
+    const incoming = Number.isFinite(scaled) ? Math.max(1, Math.round(scaled)) : 1;
+    const blocked = Math.min(this.shield, incoming);
+    this.shield = Math.max(0, this.shield - blocked);
+    const dmg = Math.max(0, incoming - blocked);
+    if (dmg > 0) this.hp = Math.max(0, this.hp - dmg);
+    this.iframes = 0.6; this.hurtT = dmg > 0 ? 0.25 : 0.12;
+    const g = this._g;
+    if (blocked > 0 && g && g.spawnText) {
+      g.spawnText(this.x, this.y - 34, `护盾 -${blocked}`, { color: '#5fb8c4', size: 13, life: 0.7 });
+      if (g.addParticles) g.addParticles(this.x, this.y, { n: 5, color: '#7fd4de', speed: 80, life: 0.28, size: 3 });
+    }
+    Bus.emit('player-hurt', { player: this, g, rawAmount: safeAmount, mitigated: incoming, damage: dmg, blocked });
+    if (dmg > 0) Bus.emit('hurt', dmg); // main 监听此事件做震屏/红晕
+    else if (blocked > 0) Bus.emit('shield-hit', blocked);
     if (this.hp <= 0) { this.hp = 0; Bus.emit('runend', { victory: false }); }
   }
-
   addXp(n) {
     const hadPending = this.pendingLevels > 0;
     this.xp += Math.round(n * this.stats.xpMult);
@@ -148,6 +193,17 @@ export class Player {
   xpRatio() { return this.xp / xpNeed(this.level); }
 
   draw(ctx) {
+    if (this.shield > 0 && this.shieldMax > 0) {
+      const f = Math.max(0.18, Math.min(1, this.shield / this.shieldMax));
+      ctx.save();
+      ctx.globalAlpha = 0.2 + f * 0.45;
+      ctx.strokeStyle = '#5fb8c4'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(this.x, this.y, 25 + f * 3, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 0.18 + f * 0.16;
+      ctx.fillStyle = '#7fd4de';
+      ctx.beginPath(); ctx.arc(this.x, this.y, 22 + f * 2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
     const walking = this.moving && Math.floor(this.animT / 0.16) % 2 === 1;
     const name = this.char.sprite + (walking ? '_1' : '_0');
     if (this.iframes > 0 && Math.floor(this.iframes * 12) % 2 === 0) return; // 无敌帧闪烁
