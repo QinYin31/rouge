@@ -53,8 +53,10 @@ export class Player {
   recalc() {
     const b = this.bonuses, c = this.char;
     const oldMax = this.stats ? this.stats.maxHp : 0;
+    const computedMaxHp = Math.round((c.hp + b.hpFlat) * b.hpMult);
+    const maxHp = Number.isFinite(computedMaxHp) && computedMaxHp > 0 ? computedMaxHp : Math.max(1, c.hp);
     this.stats = {
-      maxHp: Math.round((c.hp + b.hpFlat) * b.hpMult),
+      maxHp,
       might: c.might * b.mightMult,
       cdMult: this.charBonus.cdMult * b.cdMult,
       speed: c.speed * b.speedMult,
@@ -66,6 +68,7 @@ export class Player {
       damageTakenMult: this.charBonus.damageTakenMult,
       regen: b.regenFlat,
     };
+    if (!Number.isFinite(this.hp)) this.hp = this.stats.maxHp;
     if (oldMax && this.stats.maxHp > oldMax) this.hp += this.stats.maxHp - oldMax;
     if (this.hp > this.stats.maxHp) this.hp = this.stats.maxHp;
   }
@@ -117,10 +120,14 @@ export class Player {
   dashReady() { return this.dash.cd <= 0; }
 
   takeDamage(amount) {
+    if (!Number.isFinite(this.hp)) this.hp = Number.isFinite(this.stats.maxHp) ? this.stats.maxHp : 1;
     if (this.iframes > 0 || this.hp <= 0) return;
-    const afterArmor = Math.max(1, amount - this.stats.armor);
-    const dmg = Math.max(1, Math.round(afterArmor * this.stats.damageTakenMult));
-    this.hp -= dmg;
+    const rawAmount = Number(amount);
+    const safeAmount = Number.isFinite(rawAmount) ? rawAmount : 1;
+    const afterArmor = Math.max(1, safeAmount - this.stats.armor);
+    const scaled = afterArmor * this.stats.damageTakenMult;
+    const dmg = Number.isFinite(scaled) ? Math.max(1, Math.round(scaled)) : 1;
+    this.hp = Math.max(0, this.hp - dmg);
     this.iframes = 0.6; this.hurtT = 0.25;
     Bus.emit('hurt', dmg); // main 监听此事件做震屏/红晕
     if (this.hp <= 0) { this.hp = 0; Bus.emit('runend', { victory: false }); }

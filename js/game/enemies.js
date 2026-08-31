@@ -30,6 +30,17 @@ export const ENEMY_TYPES = {
 let uid = 0;
 let lastHitSfx = 0;
 const TAU = Math.PI * 2;
+// 战斗实体生命上限：只拦截数值溢出，不影响正常局内血量曲线。
+export const MAX_ENTITY_HP = 1_000_000_000;
+
+function safeHp(value, fallback = 1) {
+  const n = Number(value);
+  if (n === Number.POSITIVE_INFINITY) return MAX_ENTITY_HP;
+  if (Number.isFinite(n) && n > 0) return Math.min(MAX_ENTITY_HP, n);
+  const fb = Number(fallback);
+  if (fb === Number.POSITIVE_INFINITY) return MAX_ENTITY_HP;
+  return Number.isFinite(fb) && fb > 0 ? Math.min(MAX_ENTITY_HP, fb) : 1;
+}
 // 热路径复用的伤害参数对象(单线程,先填字段后调用,无重入;调用方每敌先填)
 const HIT = { kx: 0, ky: 0 };
 const DOT = { dot: 1, kx: 0, ky: 0 };            // 灼烧/区域跳伤:淡墨小字、无粒子
@@ -43,7 +54,8 @@ export function spawnEnemy(g, typeId, x, y, o = {}) {
   if (!t) return null;
   const elite = !!o.elite, mini = !!o.mini;
   const hpM = (o.hpMult || 1) * (elite ? 6 : 1) * (mini ? 0.35 : 1);
-  const hp = o.hpOverride !== undefined ? o.hpOverride : t.hp * hpM;
+  const baseHp = t.hp * (elite ? 6 : 1) * (mini ? 0.35 : 1);
+  const hp = safeHp(o.hpOverride !== undefined ? o.hpOverride : t.hp * hpM, baseHp);
   const e = {
     id: ++uid, type: typeId, name: t.name, sprite: t.sprite, beh: t.beh, boss: !!t.boss, pcol: t.col,
     x, y,
@@ -74,16 +86,21 @@ export function shakeIf(g, mag, dur) {
 // 唯一伤害入口:伤害数字 / 暴击(10%×1.6) / 击退 / 闪白 / 命中爆点 / 死亡掉落
 // 配色(CONTRACT v2 水墨):普通墨色 #3a3a3a · 暴击朱砂 #b03a2e · 联动青焰 #4da7b4
 export function damageEnemy(g, e, amount, o = {}) {
-  if (!e || e.dead || e.hp <= 0) return;
+  if (!e || e.dead) return;
+  // 先修复已经被旧数据/溢出污染的血量，避免 Infinity - Infinity 变成 NaN。
+  e.maxHp = safeHp(e.maxHp, e.hp);
+  e.hp = Number.isFinite(e.hp) ? Math.min(e.maxHp, e.hp) : e.maxHp;
+  if (e.hp <= 0) return;
   const st = g.player ? g.player.stats : null;
   let crit = o.crit;
   if (crit === undefined) {
     crit = !!st && Math.random() < st.crit;
     if (crit) amount *= st.critDmg;
   }
-  const dmg = Math.max(1, Math.round(amount));
-  e.hp -= dmg;
-  g.stats.dmg += dmg;
+  const rawDamage = Number(amount);
+  const dmg = Number.isFinite(rawDamage) ? Math.max(1, Math.round(rawDamage)) : 1;
+  e.hp = Math.max(0, e.hp - dmg);
+  g.stats.dmg = (Number.isFinite(g.stats.dmg) ? g.stats.dmg : 0) + dmg;
   e.flashT = crit ? 0.15 : 0.11;
   e.hitT = crit ? 0.18 : 0.12;
   const kb = (o.kb !== undefined ? o.kb : 1) * e.kbMult;
