@@ -47,7 +47,8 @@ export class Engine {
     this.time = 0; this.paused = 0; this.running = false;
     this.cam = null; // main 注入
     this.acc = 0; this.lastT = 0;
-    this.step = 1 / 60; this.maxSteps = 4;      // 帧率模式:setHfr 切换
+    // 默认 120Hz 物理步进,渲染仍跟随浏览器 requestAnimationFrame,无需额外高刷开关。
+    this.step = 1 / 120; this.maxSteps = 10;
     this.dprCap = 2; this.fps = 60; this.fpsShow = false;
     this._bind = this._frame.bind(this);
     window.addEventListener('resize', () => this.resize());
@@ -83,6 +84,7 @@ export class Engine {
   reset() {
     this.enemies.length = 0; this.projectiles.length = 0; this.zones.length = 0; this.pickups.length = 0;
     this.time = 0; this.paused = 0; this.boss = null;
+    this.acc = 0;
     this.stats = { kills: 0, gold: 0, level: 1, dmg: 0 };
     for (const fn of this.resets) fn();
     // 防冻结护栏:每局开始清零错误计数,被自动停用的函数恢复运行
@@ -126,7 +128,6 @@ export class Engine {
     }
   }
 
-  setHfr(on) { this.step = on ? 1 / 120 : 1 / 60; this.maxSteps = on ? 9 : 4; } // 高刷屏跟随设备刷新率
   setDprCap(cap) { this.dprCap = cap; this.resize(); }
   setFpsShow(on) { this.fpsShow = on; }
 

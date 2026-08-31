@@ -1,4 +1,4 @@
-// ===== ⚔️ 战斗agent 名下:升级池与商店数据(水墨江湖版 + 进化选项 + 组合推荐) =====
+// ===== ⚔️ 战斗agent 名下:局内升级池(水墨江湖版 + 进化选项 + 组合推荐) =====
 // rollChoices 只读不改等级;applyChoice 落实加成(被动写 p.bonuses 后 p.recalc())。
 // 进化(CONTRACT v2):武器 Lv5 + 绑定被动 Lv5 → 金色 evolve 选项必占一档,每武器仅一次。
 // 组合推荐(CONTRACT v2.2 §8):输出项可带 rec 字符串标记——
@@ -9,9 +9,8 @@
 import { WEAPONS, WEAPON_ORDER, MAX_WEAPONS, makeWeapon } from './weapons.js?v=17';
 import { combatState } from './enemies.js?v=17';
 import { Bus } from '../core/engine.js?v=17';
-import { Save } from '../core/save.js?v=17';
 
-// 9 种局内被动(权重方向与商店一致,数值更强);crit 暴击之眼只进升级池,不进商店
+// 9 种局内被动(数值更强);crit 暴击之眼只进升级池
 export const PASSIVES = {
   might:  { name: '力量',     icon: 'p_might',  maxLv: 5, desc: '内力浑厚,攻击伤害 +12%/级' },
   cd:     { name: '沙漏',     icon: 'p_cd',     maxLv: 5, desc: '心如止水,武器冷却 -8%/级' },
@@ -23,18 +22,6 @@ export const PASSIVES = {
   armor:  { name: '铁甲',     icon: 'p_armor',  maxLv: 5, desc: '金钟罩体,护甲 +1/级' },
   crit:   { name: '暴击之眼', icon: 'p_crit',   maxLv: 5, desc: '慧眼窥破绽,暴击率 +6%/级' },
 };
-
-// 8 种商店永久强化(开局经 applyShopBonuses 应用;护甲商店上限 2 级)
-export const SHOP_UPGRADES = [
-  { id: 'might',  name: '力量', desc: '伤害 +4%/级',    icon: 'p_might',  max: 5, cost: [30, 80, 160, 300, 520] },
-  { id: 'hp',     name: '体质', desc: '生命 +8/级',     icon: 'p_hp',     max: 5, cost: [30, 80, 160, 300, 520] },
-  { id: 'speed',  name: '敏捷', desc: '移速 +2%/级',    icon: 'p_speed',  max: 5, cost: [25, 70, 140, 260, 460] },
-  { id: 'cd',     name: '专注', desc: '冷却 -2%/级',    icon: 'p_cd',     max: 5, cost: [40, 90, 180, 320, 560] },
-  { id: 'magnet', name: '贪婪', desc: '拾取范围 +8/级', icon: 'p_magnet', max: 5, cost: [20, 60, 120, 240, 420] },
-  { id: 'xp',     name: '聪慧', desc: '经验 +3%/级',    icon: 'p_xp',     max: 5, cost: [35, 85, 170, 310, 540] },
-  { id: 'gold',   name: '财运', desc: '金币 +5%/级',    icon: 'p_gold',   max: 5, cost: [25, 70, 140, 260, 460] },
-  { id: 'armor',  name: '坚韧', desc: '护甲 +1/级',     icon: 'p_armor',  max: 2, cost: [120, 400] },
-];
 
 const PASSIVE_BONUS = {
   might:  { key: 'mightMult',  mode: 'mult', v: 0.12 },
@@ -198,25 +185,4 @@ export function applyChoice(g, c) {
   } else if (c.kind === 'heal') {
     p.hp = Math.min(p.stats.maxHp, p.hp + (c.heal || 45));
   }
-}
-
-// 开局时把商店永久强化应用到玩家(main 调用;同时标记本局开始)
-export function applyShopBonuses(p) {
-  combatState.runActive = true;
-  p.dashCdMul = 1; // 开局重置疾风靴冲刺冷却倍率
-  const shop = (Save.data && Save.data.shop) || {};
-  const map = {
-    might: 'mightMult', hp: 'hpFlat', speed: 'speedMult', cd: 'cdMult',
-    magnet: 'magnetFlat', xp: 'xpMult', gold: 'goldMult', armor: 'armorFlat',
-  };
-  const mult = { mightMult: 0.04, speedMult: 0.02, cdMult: -0.02, xpMult: 0.03, goldMult: 0.05 };
-  const add = { hpFlat: 8, magnetFlat: 8, armorFlat: 1 };
-  for (const id in map) {
-    const lv = shop[id] || 0, key = map[id];
-    for (let i = 0; i < lv; i++) {
-      if (key in mult) p.bonuses[key] *= (1 + mult[key]);
-      else p.bonuses[key] += add[key];
-    }
-  }
-  p.recalc();
 }

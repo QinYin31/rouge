@@ -8,11 +8,11 @@ import { bake } from './sprites.js?v=17';
 import { Player, CHARACTERS } from './game/player.js?v=17';
 import { initMap } from './game/map.js?v=17';
 import { initParticles } from './game/particles.js?v=17';
-import { initCombat } from './game/enemies.js?v=17';
+import { initCombat, combatState } from './game/enemies.js?v=17';
 import { initSpawner, setEndless } from './game/spawner.js?v=17';
 import { initBoss } from './game/boss.js?v=17';
 import { initPickups } from './game/pickups.js?v=17';
-import { rollChoices, applyChoice, applyShopBonuses, SHOP_UPGRADES } from './game/upgrades.js?v=17';
+import { rollChoices, applyChoice } from './game/upgrades.js?v=17';
 import { makeWeapon } from './game/weapons.js?v=17';
 import { HUD } from './ui/hud.js?r=8';
 import { Screens } from './ui/screens.js?v=17';
@@ -25,7 +25,6 @@ engine.save = Save;
 window.__g = engine; // 调试句柄(测试/排查用)
 const cam = new Camera();
 engine.cam = cam;
-const SHOP = new Map(SHOP_UPGRADES.map(u => [u.id, u]));
 
 Save.load();
 bake();
@@ -135,23 +134,7 @@ function showMenu() {
         onBack: () => showMenu(),
       });
     },
-    onShop: () => { SFX.play('click'); openShop(); },
     onToggle: (k, v) => applySetting(k, v),
-  });
-}
-
-function openShop() {
-  Screens.buildShop({
-    onBuy: id => {
-      const d = Save.data, u = SHOP.get(id), lv = d.shop[id] || 0;
-      if (lv < u.max && d.gold >= u.cost[lv]) {
-        d.gold -= u.cost[lv];
-        d.shop[id] = lv + 1;
-        Save.commit(); SFX.play('coin');
-        openShop(); // 刷新
-      }
-    },
-    onBack: () => showMenu(),
   });
 }
 
@@ -160,9 +143,9 @@ function startRun(charId) {
   lastChar = charId;
   engine.reset();
   const p = new Player(charId);
-  applyShopBonuses(p);
   p.weapons.push(makeWeapon(p.char.weapon));
   engine.player = p;
+  combatState.runActive = true;
   engine.passiveLv = { might: 0, cd: 0, speed: 0, hp: 0, magnet: 0, xp: 0, gold: 0, armor: 0 };
   cam.snap(p.x, p.y);
   inRun = true;
@@ -183,8 +166,7 @@ function applySetting(k, v) {
   Save.data.settings[k] = v; Save.commit();
   if (k === 'sfx') SFX.setSfx(v);
   if (k === 'music') SFX.setMusic(v);
-  if (k === 'hfr') engine.setHfr(v);        // 高刷模式:120Hz 屏跟随设备刷新率
-  if (k === 'lowgfx') engine.setDprCap(v ? 1 : 2); // 流畅画质:降采样保帧率
+  if (k === 'lowgfx') engine.setDprCap(v ? 1 : Math.min(2, window.devicePixelRatio || 1)); // 流畅画质:降采样保帧率
   if (k === 'fpsShow') engine.setFpsShow(v);
 }
 
@@ -208,12 +190,9 @@ document.addEventListener('visibilitychange', () => {
 
 SFX.setSfx(Save.data.settings.sfx);
 SFX.setMusic(Save.data.settings.music);
-engine.setHfr(!!Save.data.settings.hfr);
-engine.setDprCap(Save.data.settings.lowgfx ? 1 : 2);
+engine.setDprCap(Save.data.settings.lowgfx ? 1 : Math.min(2, window.devicePixelRatio || 1));
 engine.setFpsShow(!!Save.data.settings.fpsShow);
 showMenu();
-// 屏幕刷新率检测完成后,若仍在主菜单则重建一次,让「高刷模式(屏幕xxHz)」标注出现
-setTimeout(() => { if (!inRun && Screens.current === 'screen-menu') showMenu(); }, 1700);
 engine.start();
 
 // 调试:?cheat 快速获得经验 ?fast 时间加速(测试升级/Boss/通关流程用)

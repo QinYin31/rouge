@@ -1,16 +1,14 @@
 // ===== 🖥️ UI agent 名下:本地存档(容错解析 + 字段校验 + 坏档回默认) =====
-// 结构契约:{v,gold,chars,shop,settings,best,totalRuns,totalKills}  key:'pxs_save'
+// 结构契约:{v,gold,chars,settings,best,totalRuns,totalKills}  key:'pxs_save'
 const KEY = 'pxs_save';
 
 // 角色白名单(与 CHARACTERS 固定三项一致,防脏数据混入)
 const VALID_CHARS = ['knight', 'mage', 'ranger'];
-const SHOP_KEYS = ['might', 'hp', 'speed', 'cd', 'magnet', 'xp', 'gold', 'armor'];
 
 function defaults() {
   return {
     v: 1, gold: 0, chars: ['knight'],
-    shop: { might: 0, hp: 0, speed: 0, cd: 0, magnet: 0, xp: 0, gold: 0, armor: 0 },
-    settings: { sfx: true, music: true, shake: true, hfr: false, lowgfx: false, fpsShow: false },
+    settings: { sfx: true, music: true, shake: true, lowgfx: false, fpsShow: false },
     best: { time: 0, kills: 0, level: 0, victory: false },
     totalRuns: 0, totalKills: 0,
   };
@@ -33,13 +31,12 @@ function sanitize(raw) {
   }
   if (!d.chars.length) d.chars = ['knight'];
   if (!d.chars.includes('knight')) d.chars.unshift('knight'); // 初始角色永远可用
-  if (raw.shop && typeof raw.shop === 'object') {
-    for (const k of SHOP_KEYS) d.shop[k] = toInt(raw.shop[k], 0, 99);
-  }
   if (raw.settings && typeof raw.settings === 'object') {
     d.settings.sfx = toBool(raw.settings.sfx, true);
     d.settings.music = toBool(raw.settings.music, true);
     d.settings.shake = toBool(raw.settings.shake, true);
+    d.settings.lowgfx = toBool(raw.settings.lowgfx, false);
+    d.settings.fpsShow = toBool(raw.settings.fpsShow, false);
   }
   if (raw.best && typeof raw.best === 'object') {
     d.best.time = toInt(raw.best.time, 0);

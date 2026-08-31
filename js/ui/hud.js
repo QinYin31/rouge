@@ -263,7 +263,7 @@ export const HUD = {
     this._statT = now;
     const p = this.g.player;
     if (!p || !p.stats) return;
-    const c = CHARACTERS[p.charId] || {}; // 基线取角色初始值;当前值含被动/商店强化来自 p.stats
+    const c = CHARACTERS[p.charId] || {}; // 基线取角色初始值;当前值含局内被动来自 p.stats
     const s = p.stats;
     const pct = (v, base) => {
       const d = Math.round((v / (base || 1) - 1) * 100);

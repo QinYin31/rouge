@@ -503,37 +503,6 @@ label.tg input:checked {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ---------- 永久强化商店 ---------- */
-.shop-gold {
-  font-size: 18px; font-weight: 700; color: var(--gold);
-  margin-bottom: 8px;
-  text-shadow: 0 1px 0 rgba(242, 236, 221, .9), 1px 1px 0 rgba(107, 107, 93, .5);
-  letter-spacing: 1px;
-}
-.shop-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; text-align: left; }
-.shop-row {
-  background:
-    repeating-linear-gradient(0deg, rgba(107, 107, 93, .035) 0 1px, transparent 1px 3px),
-    linear-gradient(150deg, var(--paper-hi), var(--paper));
-  border: 2px solid var(--ink-4);
-  box-shadow: inset 0 0 0 1px rgba(236, 229, 211, .7), 1px 2px 0 rgba(43, 43, 43, .18);
-  padding: 8px 10px;
-  transition: border-color .12s, filter .12s;
-}
-.shop-row:hover { border-color: var(--ink-2); filter: brightness(.97); }
-.btn.shop-buy { min-width: 64px; letter-spacing: 1px; flex-shrink: 0; }
-.shop-name { font-size: 15px; font-weight: 700; color: var(--ink); text-shadow: 0 1px 0 rgba(242, 236, 221, .8); }
-.shop-desc { color: var(--ink-3); }
-.pips { align-items: center; }
-.pip {
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgba(43, 43, 43, .35);
-}
-.pip.on {
-  background: var(--cinnabar);
-  box-shadow: inset 0 0 0 1px rgba(92, 26, 20, .6), 0 0 4px rgba(176, 58, 46, .5);
-}
-
 /* ---------- 结算 ---------- */
 .over-stats { margin: 14px 0; font-size: 15px; line-height: 1.9; color: var(--ink-2); display: grid; }
 .ostat {
@@ -599,9 +568,6 @@ label.tg input:checked {
 }
 
 button { font-family: inherit; }
-
-/* 商店返回按钮吸底(列表长时始终可见) */
-#btn-shop-back { position: sticky; bottom: 0; width: 100%; margin-top: 10px; }
 
 /* =========================================================================
    ==== 组合图鉴(codex)==== —— 📜图鉴agent 名下(末尾独立追加段)
@@ -753,7 +719,7 @@ button { font-family: inherit; }
 }
 .codex-item-sub { font-size: 11px; color: var(--ink-4); margin-top: 1px; }
 
-/* 返回按钮吸底(列表长时始终可见,与商店一致) */
+/* 返回按钮吸底(列表长时始终可见) */
 #btn-codex-back { position: sticky; bottom: 0; width: 100%; margin-top: 10px; }
 
 /* 手机单列 */

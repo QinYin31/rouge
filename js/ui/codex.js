@@ -14,7 +14,7 @@ import { SFX } from '../core/audio.js?v=17';
 const TAU = Math.PI * 2;
 const W = 480, H = 270;        // 演示舞台逻辑分辨率(16:9,实际缓冲按容器宽度 × dpr)
 const EVO_PASS_LV = 3;         // v2.3:心法进化门槛 3 级
-const ALIAS = { cd: '专注', xp: '聪慧', gold: '财运', magnet: '贪婪' }; // 心法商店别名(对照用)
+const ALIAS = { cd: '专注', xp: '聪慧', gold: '财运', magnet: '贪婪' }; // 心法别名(对照用)
 
 // 水墨配色(与 css 变量 / sprites 调色板一致)
 const INK = '#3a3a3a', INK2 = '#4a4a5a', CIN = '#b03a2e', CIN2 = '#c85545',

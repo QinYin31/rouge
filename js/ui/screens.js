@@ -1,11 +1,10 @@
-// ===== 🖥️ UI agent 名下:全部屏幕(菜单/选人/商店/升级三选一/暂停/结算) =====
+// ===== 🖥️ UI agent 名下:全部屏幕(菜单/选人/升级三选一/暂停/结算) =====
 import { CHARACTERS } from '../game/player.js?v=17';
-import { SHOP_UPGRADES } from '../game/upgrades.js?v=17';
 import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=17';
 import { SFX } from '../core/audio.js?v=17';
 
-const SCREENS = ['screen-menu', 'screen-select', 'screen-shop', 'screen-levelup', 'screen-pause', 'screen-over'];
-const TOGGLE_DEFS = [['sfx', '音效'], ['music', '音乐'], ['shake', '震动'], ['hfr', '高刷120帧'], ['lowgfx', '流畅画质'], ['fpsShow', '帧率显示']];
+const SCREENS = ['screen-menu', 'screen-select', 'screen-levelup', 'screen-pause', 'screen-over'];
+const TOGGLE_DEFS = [['sfx', '音效'], ['music', '音乐'], ['shake', '震动'], ['lowgfx', '流畅画质'], ['fpsShow', '帧率显示']];
 
 // 小尺寸像素图标 canvas(names 依序尝试,第一个绘制成功的生效)
 function spriteCanvas(names, px) {
@@ -56,10 +55,8 @@ function mmss(t) {
 // 设置开关:label > checkbox + span,美化交给 CSS
 function buildToggles(container, data, onToggle, g) {
   container.innerHTML = '';
-  const hz = g && g.displayHz ? g.displayHz + 'Hz' : '';
   for (const [key, labelText] of TOGGLE_DEFS) {
-    let label = labelText;
-    if (key === 'hfr' && hz) label += '(' + hz + ')'; // 高刷开关旁显示检测到的屏幕刷新率
+    const label = labelText;
     const l = document.createElement('label');
     l.className = 'tg';
     const cb = document.createElement('input');
@@ -106,7 +103,6 @@ export const Screens = {
       `最佳纪录:存活 <b>${fmtT(b.time)}</b> · 击杀 <b>${b.kills}</b> · 等级 <b>${b.level}</b>${b.victory ? ' · 🏆已通关' : ''}` +
       `<br>总场次 <b>${d.totalRuns}</b> · 总击杀 <b>${d.totalKills}</b> · 金币 <b>🪙 ${d.gold}</b>`;
     bindTap(document.getElementById('btn-play'), cb.onPlay);
-    bindTap(document.getElementById('btn-shop'), cb.onShop);
     buildToggles(document.getElementById('menu-toggles'), d, cb.onToggle, this.g);
     this.show('screen-menu');
   },
@@ -184,60 +180,6 @@ export const Screens = {
 
     bindTap(document.getElementById('btn-select-back'), () => { this._selTok++; cb.onBack(); });
     this.show('screen-select');
-  },
-
-  // ---------- 永久强化商店 ----------
-  buildShop(cb) {
-    const d = this.g.save.data;
-    document.getElementById('shop-gold').textContent = `🪙 ${d.gold}`;
-    const list = document.getElementById('shop-list');
-    list.innerHTML = '';
-
-    for (const u of SHOP_UPGRADES) {
-      const lv = Math.min(d.shop[u.id] || 0, u.max);
-      const maxed = lv >= u.max;
-      const price = maxed ? 0 : u.cost[lv];
-
-      const row = document.createElement('div');
-      row.className = 'shop-row';
-      row.style.cssText = 'display:flex;align-items:center;gap:10px;text-align:left;';
-
-      const ico = spriteCanvas([u.icon], 30);
-      ico.style.flexShrink = '0';
-      row.appendChild(ico);
-
-      const mid = document.createElement('div');
-      mid.style.cssText = 'flex:1;min-width:0;';
-      mid.innerHTML =
-        `<div class="shop-name">${u.name} <em style="font-style:normal;font-size:12px;color:#8b9bb4;">Lv.${lv}/${u.max}</em></div>` +
-        `<div class="shop-desc" style="font-size:12px;color:#8b9bb4;">${u.desc}</div>`;
-      // 等级 pips
-      const pips = document.createElement('div');
-      pips.className = 'pips';
-      pips.style.cssText = 'display:flex;gap:3px;margin-top:4px;';
-      for (let i = 0; i < u.max; i++) {
-        const p = document.createElement('i');
-        p.className = 'pip' + (i < lv ? ' on' : '');
-        p.style.cssText = `width:8px;height:8px;display:inline-block;background:${i < lv ? '#fee761' : '#3a4466'};`;
-        pips.appendChild(p);
-      }
-      mid.appendChild(pips);
-      row.appendChild(mid);
-
-      const btn = document.createElement('button');
-      btn.className = 'btn shop-buy' + (maxed ? ' maxed' : '');
-      const poor = !maxed && d.gold < price;
-      btn.textContent = maxed ? '已满级' : poor ? '金币不足' : `🪙 ${price}`;
-      btn.disabled = maxed || poor;
-      if (poor) btn.style.cssText = 'opacity:.5;filter:grayscale(.55);';
-      if (!maxed && !poor) bindTap(btn, () => cb.onBuy(u.id)); // 扣款与刷新由 main 处理
-      row.appendChild(btn);
-
-      list.appendChild(row);
-    }
-
-    bindTap(document.getElementById('btn-shop-back'), cb.onBack);
-    this.show('screen-shop');
   },
 
   // ---------- 升级三选一(第三参 onReroll 可选:每次升级附 1 次免费刷新,契约 v2.1-5) ----------

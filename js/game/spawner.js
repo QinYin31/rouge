@@ -1,5 +1,5 @@
 // ===== ⚔️ 战斗agent 名下:刷怪导演(时间曲线 / 怪潮包围 / 环带刷怪 / 无尽模式) =====
-import { spawnEnemy, combatState } from './enemies.js?v=17';
+import { spawnEnemy, ENEMY_TYPES, combatState } from './enemies.js?v=17';
 
 const MAX_E = 180;          // 同屏普通怪上限(CONTRACT v2.1 §4:200→180,超过不刷普通怪)
 const TAU = Math.PI * 2;
@@ -22,11 +22,47 @@ function pickWeighted(pool) {
   return pool[0][0];
 }
 
-// 怪物血量曲线：按分钟平滑增长，0s×1.00 / 60s×1.36 / 120s×1.84 / 300s×4.00 / 600s×10.00
-// 前期给玩家成长空间，5 分钟后逐步提高压力，10 分钟仍可通过升级与进化应对。
-function hpMultAt(t) {
-  const m = Math.max(0, t) / 60;
-  return 1 + 0.3 * m + 0.06 * m * m;
+// 普通怪血量曲线：前期平缓，240s 后明显加压，避免后期低基础血量怪被一击清空。
+// 采样点:0s×1.00 / 60s×1.35 / 120s×1.90 / 300s×6.50 / 600s×28.00。
+const HP_POINTS = [[0, 1], [60, 1.35], [120, 1.9], [300, 6.5], [450, 15], [600, 28]];
+// 精英单独走较缓曲线，再叠加精英自身×6，避免普通怪加压后精英膨胀到不可控。
+const ELITE_HP_POINTS = [[0, 1], [60, 1.2], [120, 1.55], [300, 3.5], [450, 5.8], [600, 8]];
+const NORMAL_HP_TAIL = 0.06; // 600s 后每秒继续增加 0.06 倍,无尽模式仍有成长
+const ELITE_HP_TAIL = 0.018;
+
+function curveAt(t, points, tail = 0) {
+  const sec = Math.max(0, Number(t) || 0);
+  if (sec >= points[points.length - 1][0]) {
+    return points[points.length - 1][1] + (sec - points[points.length - 1][0]) * tail;
+  }
+  for (let i = 1; i < points.length; i++) {
+    const [t1, v1] = points[i];
+    if (sec <= t1) {
+      const [t0, v0] = points[i - 1];
+      const f0 = (sec - t0) / (t1 - t0);
+      const f = f0 * f0 * (3 - 2 * f0); // smoothstep,避免阶段切换时血量跳变
+      return v0 + (v1 - v0) * f;
+    }
+  }
+  return points[points.length - 1][1];
+}
+
+export function hpMultAt(t) { return curveAt(t, HP_POINTS, NORMAL_HP_TAIL); }
+export function eliteHpMultAt(t) { return curveAt(t, ELITE_HP_POINTS, ELITE_HP_TAIL); }
+
+// 低基础血量怪的后期保底:600s 时至少 735HP,保证进化武器单发也不能随手秒掉。
+export function minOrdinaryHpAt(t) {
+  return Math.max(0, (Number(t) || 0) - 180) * 1.75;
+}
+
+export function spawnHpMultAt(typeId, t, { elite = false, horde = false } = {}) {
+  const type = ENEMY_TYPES[typeId];
+  if (!type) return 1;
+  const normalCurve = hpMultAt(t);
+  const floor = minOrdinaryHpAt(t) / Math.max(1, type.hp);
+  if (elite) return Math.max(eliteHpMultAt(t), floor);
+  const curve = normalCurve * (horde ? 0.75 : 1);
+  return Math.max(curve, floor);
 }
 function dmgMultAt(t) { return 1 + t / 240; }
 function spdMultAt(t) { return 1 + Math.min(0.3, t / 2000); }
@@ -81,18 +117,19 @@ export function initSpawner(g) {
     if (budget > 8) budget = 8;
     if (budget <= 0) return;
     const pool = POOLS[poolIdx(t)];
-    const hpM = hpMultAt(t), dmgM = dmgMultAt(t), spdM = spdMultAt(t);
+    const dmgM = dmgMultAt(t), spdM = spdMultAt(t);
     for (let i = 0; i < budget; i++) {
       if (g.enemies.length >= cap) break;
       ringSpot(g, p);
       // 精英:冷却好了有小概率出现(最小间隔 ~16-24s);360s 后可能出黑无常
       if (eliteCd <= 0 && Math.random() < 0.09) {
         const et = (t >= 360 && Math.random() < 0.4) ? 'reaper' : pickWeighted(pool);
-        spawnEnemy(g, et, SP.x, SP.y, { hpMult: hpM, dmgMult: dmgM, speedMult: spdM, elite: true });
+        spawnEnemy(g, et, SP.x, SP.y, { hpMult: spawnHpMultAt(et, t, { elite: true }), dmgMult: dmgM, speedMult: spdM, elite: true });
         eliteCd = 16 + Math.random() * 8;
         continue;
       }
-      spawnEnemy(g, pickWeighted(pool), SP.x, SP.y, { hpMult: hpM, dmgMult: dmgM, speedMult: spdM });
+      const type = pickWeighted(pool);
+      spawnEnemy(g, type, SP.x, SP.y, { hpMult: spawnHpMultAt(type, t), dmgMult: dmgM, speedMult: spdM });
     }
   });
 }
@@ -108,11 +145,13 @@ function doHorde(g, p, t, early) {
   if (n > 30) n = 30;
   if (early) n = (n * 0.85) | 0;
   const off = Math.random() * TAU;
-  const hpM = hpMultAt(t) * 0.75, dmgM = dmgMultAt(t), spdM = spdMultAt(t);
+  const dmgM = dmgMultAt(t), spdM = spdMultAt(t);
   for (let i = 0; i < n; i++) {
     if (g.enemies.length >= MAX_E) break;
     const a = off + (i / n) * TAU + (Math.random() - 0.5) * 0.15;
-    spawnEnemy(g, type, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R, { hpMult: hpM, dmgMult: dmgM, speedMult: spdM });
+    spawnEnemy(g, type, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R, {
+      hpMult: spawnHpMultAt(type, t, { horde: true }), dmgMult: dmgM, speedMult: spdM,
+    });
   }
   g.spawnText(p.x, p.y - 70, '怪潮来袭!', { color: '#b03a2e', size: 20, life: 1.6 });
 }

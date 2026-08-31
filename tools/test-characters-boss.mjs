@@ -1,6 +1,6 @@
 import { Player } from '../js/game/player.js?v=17';
-import { initCombat, ENEMY_TYPES, combatState } from '../js/game/enemies.js?v=17';
-import { initBoss } from '../js/game/boss.js?v=17';
+import { initCombat, ENEMY_TYPES, combatState, damageEnemy } from '../js/game/enemies.js?v=17';
+import { initBoss, BOSS_DESIGNS, bossHpAt } from '../js/game/boss.js?v=17';
 import { SpatialHash } from '../js/core/engine.js?v=17';
 
 function assert(condition, message) {
@@ -27,13 +27,13 @@ console.log('role stats passed', {
 function makeHarness() {
   const updates = [], resets = [];
   const g = {
-    enemies: [], projectiles: [], zones: [], pickups: [], qbuf: [], grid: new SpatialHash(80),
+    enemies: [], projectiles: [], zones: [], pickups: [], particleBursts: [], qbuf: [], grid: new SpatialHash(80),
     player: { x: 0, y: 0, dash: { cd: 0 }, stats: { armor: 0, crit: 0, critDmg: 1.6, cdMult: 1 }, update() {}, takeDamage() {} },
     cam: { zoom: 1, follow() {} }, w: 1280, h: 720,
     _finalBoss: false, _endless: false, boss: null, stats: { kills: 0, dmg: 0 },
     addUpdater(fn) { updates.push(fn); }, addReset(fn) { resets.push(fn); }, addDrawer() {},
     addEnemy(e) { this.enemies.push(e); }, addProjectile(p) { this.projectiles.push(p); },
-    addParticles() {}, spawnText() {}, addPickup(p) { this.pickups.push(p); }, addZone(z) { this.zones.push(z); },
+    addParticles(x, y, o) { this.particleBursts.push(o); }, spawnText() {}, addPickup(p) { this.pickups.push(p); }, addZone(z) { this.zones.push(z); },
     shake() {}, inView() { return true; }, remove(a, i) { a[i] = a[a.length - 1]; a.pop(); },
   };
   initCombat(g);
@@ -50,7 +50,12 @@ g.time = 300;
 updates[1]();
 const golem = g.boss;
 assert(golem && golem.type === 'boss_golem', 'golem did not spawn');
-assert(Math.abs(golem.maxHp - 3080) < 0.01, `golem hp mismatch: ${golem.maxHp}`);
+assert(Math.abs(golem.maxHp - bossHpAt('boss_golem', 300)) < 0.01, `golem hp mismatch: ${golem.maxHp}`);
+assert(golem.maxHp === BOSS_DESIGNS.boss_golem.baseHp, `golem design hp mismatch: ${golem.maxHp}`);
+damageEnemy(g, golem, 10000, { crit: false });
+assert(!golem.dead && golem.hp > 0, 'golem should not die to a single burst');
+assert(golem.hitT > 0 && g.particleBursts.some(p => p.streak > 1), 'hit feedback effect missing');
+golem.hp = golem.maxHp;
 assert(Math.abs(golem.dmg - 38) < 0.01, `golem damage mismatch: ${golem.dmg}`);
 updates[0](1 / 60);
 const golemShots = g.projectiles.length;
@@ -69,7 +74,11 @@ g.time = 600;
 updates[1]();
 const overlord = g.boss;
 assert(overlord && overlord.type === 'boss_overlord', 'overlord did not spawn');
-assert(Math.abs(overlord.maxHp - 13800) < 0.01, `overlord hp mismatch: ${overlord.maxHp}`);
+assert(Math.abs(overlord.maxHp - bossHpAt('boss_overlord', 600)) < 0.01, `overlord hp mismatch: ${overlord.maxHp}`);
+assert(overlord.maxHp === BOSS_DESIGNS.boss_overlord.baseHp, `overlord design hp mismatch: ${overlord.maxHp}`);
+damageEnemy(g, overlord, 10000, { crit: false });
+assert(!overlord.dead && overlord.hp > 0, 'overlord should not die to a single burst');
+overlord.hp = overlord.maxHp;
 assert(Math.abs(overlord.dmg - 39.6) < 0.01, `overlord damage mismatch: ${overlord.dmg}`);
 updates[0](1 / 60);
 const phaseOneAdds = g.enemies.length;

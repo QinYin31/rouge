@@ -6,7 +6,7 @@
 import { drawSprite } from '../sprites.js?v=17';
 import { Bus } from '../core/engine.js?v=17';
 
-// 战斗模块共享的运行状态:main 仅在 startRun 中调用 applyShopBonuses(upgrades.js),
+// 战斗模块共享的运行状态:main 仅在 startRun 中设置 combatState.runActive,
 // 以此作为"本局开始"信号;engine.reset 时由各战斗模块的 addReset 复位,
 // 防止退出到主菜单后后台仍在刷怪/结算/触发音效。
 export const combatState = { runActive: false };
@@ -22,7 +22,7 @@ export const ENEMY_TYPES = {
   turtle:        { name: '铁甲龟',   sprite: 'turtle',        hp: 170,  speed: 17, dmg: 14, r: 17, xp: 6,   coinP: 0.16, beh: 6,  col: '#9ac1c9', kb: 0 },
   wisp:          { name: '青灯鬼火', sprite: 'wisp',          hp: 26,   speed: 58, dmg: 10, r: 11, xp: 3,   coinP: 0.08, beh: 7,  col: '#2ce8f5', kb: 1 },
   reaper:        { name: '黑无常',   sprite: 'reaper',        hp: 95,   speed: 68, dmg: 22, r: 18, xp: 8,   coinP: 0.25, beh: 8,  col: '#68386c', kb: 0.4 },
-  // Boss 基础数值：石像守卫 2800HP/30伤害，无常尊者 12000HP/36伤害；阶段转场另外释放弹幕。
+  // Boss 实体模板基础数值；实际 Boss 生命由 boss.js 的 BOSS_DESIGNS 独立注入。
   boss_golem:    { name: '石像守卫', sprite: 'boss_golem',    hp: 2800, speed: 48, dmg: 30, r: 38, xp: 60,  coinP: 1,    beh: 9,  col: '#b55088', kb: 0.12, boss: 1 },
   boss_overlord: { name: '无常尊者', sprite: 'boss_overlord', hp: 12000, speed: 46, dmg: 36, r: 48, xp: 150, coinP: 1,    beh: 10, col: '#e43b44', kb: 0.05, boss: 1 },
 };
@@ -43,11 +43,12 @@ export function spawnEnemy(g, typeId, x, y, o = {}) {
   if (!t) return null;
   const elite = !!o.elite, mini = !!o.mini;
   const hpM = (o.hpMult || 1) * (elite ? 6 : 1) * (mini ? 0.35 : 1);
+  const hp = o.hpOverride !== undefined ? o.hpOverride : t.hp * hpM;
   const e = {
     id: ++uid, type: typeId, name: t.name, sprite: t.sprite, beh: t.beh, boss: !!t.boss, pcol: t.col,
     x, y,
     r: t.r * (elite ? 1.3 : 1) * (mini ? 0.62 : 1),
-    hp: t.hp * hpM, maxHp: t.hp * hpM,
+    hp, maxHp: hp,
     speed: t.speed * (o.speedMult || 1) * (elite ? 1.08 : 1) * (mini ? 1.25 : 1),
     dmg: t.dmg * (o.dmgMult || 1) * (elite ? 1.5 : 1),
     xp: mini ? 1 : Math.round(t.xp * (elite ? 5 : 1)),
@@ -55,7 +56,7 @@ export function spawnEnemy(g, typeId, x, y, o = {}) {
     elite, mini,
     hpMult: o.hpMult || 1, dmgMult: o.dmgMult || 1, // 供纸妖分裂继承成长
     status: { burn: 0, wet: 0 }, burnT: 0,          // 元素状态(秒):灼烧/墨湿
-    flashT: 0, kx: 0, ky: 0, hitCd: 0, orbCd: 0,
+    flashT: 0, hitT: 0, kx: 0, ky: 0, hitCd: 0, orbCd: 0,
     t: Math.random() * 10, aiT: Math.random() * 2.4, state: 0, bossPhase: 0, atkCd: 2 + Math.random() * 2, atkN: 0,
     fuse: -1, cx: 0, cy: 0, spd: 0,
     kbMult: t.kb !== undefined ? t.kb : 1,
@@ -70,7 +71,7 @@ export function shakeIf(g, mag, dur) {
   g.shake(mag, dur);
 }
 
-// 唯一伤害入口:伤害数字 / 暴击(10%×1.6) / 击退 / 闪白 / 死亡掉落
+// 唯一伤害入口:伤害数字 / 暴击(10%×1.6) / 击退 / 闪白 / 命中爆点 / 死亡掉落
 // 配色(CONTRACT v2 水墨):普通墨色 #3a3a3a · 暴击朱砂 #b03a2e · 联动青焰 #4da7b4
 export function damageEnemy(g, e, amount, o = {}) {
   if (!e || e.dead || e.hp <= 0) return;
@@ -83,14 +84,28 @@ export function damageEnemy(g, e, amount, o = {}) {
   const dmg = Math.max(1, Math.round(amount));
   e.hp -= dmg;
   g.stats.dmg += dmg;
-  e.flashT = 0.09;
+  e.flashT = crit ? 0.15 : 0.11;
+  e.hitT = crit ? 0.18 : 0.12;
   const kb = (o.kb !== undefined ? o.kb : 1) * e.kbMult;
   if (kb > 0) { e.kx += (o.kx || 0) * kb; e.ky += (o.ky || 0) * kb; }
   g.spawnText(e.x, e.y - e.r - 8, String(dmg), {
     color: o.synergy ? '#4da7b4' : crit ? '#b03a2e' : (o.dot ? '#6f6252' : '#3a3a3a'),
     size: o.dot ? 10 : crit ? 18 : 13, crit,
   });
-  if (!o.dot) g.addParticles(e.x, e.y, { n: crit ? 7 : 3, color: e.pcol, speed: 110, life: 0.3, size: 3 });
+  if (!o.dot) {
+    const hitColor = o.synergy ? '#4da7b4' : crit ? '#fee761' : e.pcol;
+    const kx = o.kx || 0, ky = o.ky || 0;
+    const directed = kx !== 0 || ky !== 0;
+    const dir = directed ? Math.atan2(ky, kx) : 0;
+    const spread = directed ? (crit ? 2.4 : 2.8) : Math.PI * 2;
+    g.addParticles(e.x, e.y, {
+      n: crit ? 11 : 5, color: hitColor, speed: crit ? 175 : 135, life: crit ? 0.42 : 0.34, size: crit ? 4 : 3,
+      dir, spread, streak: crit ? 2.2 : 1.65,
+    });
+    if (crit) g.addParticles(e.x, e.y, {
+      n: 5, color: '#b03a2e', speed: 90, life: 0.28, size: 2, dir, spread: 1.8, streak: 2.4,
+    });
+  }
   if (crit) shakeIf(g, 1.8, 0.1);
   const now = performance.now();
   if (now - lastHitSfx >= 70) { lastHitSfx = now; Bus.emit('sfx', 'hit'); } // 音效节流
@@ -391,6 +406,7 @@ export function initCombat(g) {
       if (e.dead) { g.remove(es, i); continue; }
       e.t += dt; e.hitCd -= dt; e.orbCd -= dt;
       if (e.flashT > 0) e.flashT -= dt;
+      if (e.hitT > 0) e.hitT -= dt;
       if (e.status && (e.status.burn > 0 || e.status.wet > 0)) updateStatus(g, e, dt);
       const dx = px - e.x, dy = py - e.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -634,9 +650,10 @@ export function initCombat(g) {
       if (e.flashT > 0) tint = '#ffffff';
       else if (e.fuse >= 0) tint = Math.sin(e.t * 36) > 0 ? '#ff4444' : null;
       else if (e.state === 1) tint = Math.sin(e.t * 28) > 0 ? '#ffd24a' : null;
+      const hitScale = e.hitT > 0 ? 1 + Math.min(0.08, e.hitT * 0.45) : 1;
       drawSprite(ctx, e.sprite, e.x, e.y + bob, {
         flip: p ? p.x < e.x : false, tint,
-        alpha: e.mini ? 0.85 : 1, scale: e.mini ? 0.62 : 1,
+        alpha: e.mini ? 0.85 : 1, scale: (e.mini ? 0.62 : 1) * hitScale,
       });
       if (e.elite) { // 精英朱砂圈标记
         ctx.strokeStyle = '#b03a2e'; ctx.lineWidth = 2;

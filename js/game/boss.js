@@ -4,6 +4,19 @@
 import { spawnEnemy, shakeIf, combatState } from './enemies.js?v=17';
 import { Bus } from '../core/engine.js?v=17';
 
+// Boss 独立生命设计:不跟随普通怪血量曲线,只按 Boss 战时间和无尽进度增长。
+export const BOSS_DESIGNS = Object.freeze({
+  boss_golem: { baseHp: 24000, startTime: 300, growthPeriod: 1200 },
+  boss_overlord: { baseHp: 120000, startTime: 600, growthPeriod: 2400 },
+});
+
+export function bossHpAt(typeId, t) {
+  const d = BOSS_DESIGNS[typeId];
+  if (!d) return 0;
+  const elapsed = Math.max(0, (Number(t) || 0) - d.startTime);
+  return Math.round(d.baseHp * (1 + elapsed / d.growthPeriod));
+}
+
 export function initBoss(g) {
   let s300 = false, s600 = false, victorySent = false, endlessArmed = false, nextGolem = 0;
 
@@ -13,10 +26,15 @@ export function initBoss(g) {
     combatState.runActive = false;
   });
 
-  function spawnBoss(typeId, hpMult, dmgMult) {
+  function spawnBoss(typeId, t, dmgMult) {
     const p = g.player;
+    const design = BOSS_DESIGNS[typeId];
     const a = Math.random() * Math.PI * 2;
-    const b = spawnEnemy(g, typeId, p.x + Math.cos(a) * 470, p.y + Math.sin(a) * 470, { hpMult, dmgMult });
+    const hp = bossHpAt(typeId, t);
+    const b = spawnEnemy(g, typeId, p.x + Math.cos(a) * 470, p.y + Math.sin(a) * 470, {
+      hpOverride: hp, dmgMult,
+    });
+    b.bossHpDesign = design.baseHp;
     g.boss = b; // HUD 血条
     Bus.emit('boss-spawn', { name: b.name }); // main:音效 + 震屏 + 出场提示
     return b;
@@ -28,20 +46,20 @@ export function initBoss(g) {
     // 300s 小 Boss:石像守卫(冲撞型)
     if (!s300 && t >= 300) {
       s300 = true;
-      spawnBoss('boss_golem', 1.1, 1.1 + t / 1800);
+      spawnBoss('boss_golem', t, 1.1 + t / 1800);
     }
     // 600s 最终 Boss:无常尊者(三阶段弹幕型)
     if (!s600 && t >= 600) {
       s600 = true;
       g._finalBoss = true; // 通知 spawner 停止常规刷怪
-      spawnBoss('boss_overlord', 1.15, 1.1);
+      spawnBoss('boss_overlord', t, 1.1);
     }
     // 无尽模式:每 150s 复读石像守卫(强度继续随时间增长)
     if (g._endless) {
       if (!endlessArmed) { endlessArmed = true; nextGolem = t + 120; }
       else if (t >= nextGolem && (!g.boss || g.boss.dead)) {
         nextGolem = t + 150;
-        spawnBoss('boss_golem', 1.1 + (t - 600) / 240, 1 + t / 600);
+        spawnBoss('boss_golem', t, 1 + t / 600);
       }
     }
   });
