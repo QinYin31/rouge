@@ -22,10 +22,12 @@ function pickWeighted(pool) {
   return pool[0][0];
 }
 
-// 强度曲线(CONTRACT v2.1 §4 后期压力软化):血量成长斜率 -25%(300s 后尤其明显)
-// 旧:1 + t/65 + (t/240)²   → 600s ≈ ×16.5,斜率@600s ≈ 0.0362/s
-// 新:1 + t/72 + 0.75×(t/300)² → 600s ≈ ×12.3(-25%),斜率@300s -27%、@600s -34%
-function hpMultAt(t) { return 1 + t / 72 + 0.75 * (t / 300) * (t / 300); }
+// 怪物血量曲线：按分钟平滑增长，0s×1.00 / 60s×1.36 / 120s×1.84 / 300s×4.00 / 600s×10.00
+// 前期给玩家成长空间，5 分钟后逐步提高压力，10 分钟仍可通过升级与进化应对。
+function hpMultAt(t) {
+  const m = Math.max(0, t) / 60;
+  return 1 + 0.3 * m + 0.06 * m * m;
+}
 function dmgMultAt(t) { return 1 + t / 240; }
 function spdMultAt(t) { return 1 + Math.min(0.3, t / 2000); }
 

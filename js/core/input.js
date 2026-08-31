@@ -9,6 +9,8 @@ export const Input = {
       if (!e.repeat) {
         const now = performance.now();
         const isDir = e.code.startsWith('Key') || e.code.startsWith('Arrow');
+        // 电脑端空格冲刺：有菜单/升级/暂停层时不积压请求，避免恢复后误冲刺
+        if (e.code === 'Space' && !document.querySelector('#screens .screen:not(.hidden)')) this.requestDash();
         if (isDir && e.code === this._lastTap.code && now - this._lastTap.t < 250) this.requestDash();
         if (isDir) this._lastTap = { code: e.code, t: now };
       }

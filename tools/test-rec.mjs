@@ -37,7 +37,7 @@ console.log('进化场景: 魔弹卡出现', seen2, '次, 带rec', recHits2, '�
 
 // 场景①:剑气 lv5 + 力量 5 → 必出进化卡 + 力量卡带 rec
 const gC = {
-  player: { weapons: [makeWeapon('knife')] },
+  player: { weapons: [makeWeapon('knife')], stats: { hp: 1, maxHp: 100 } },
   passiveLv: { might: 5 }, save: null,
 };
 gC.player.weapons[0].lv = 5;

@@ -1,5 +1,5 @@
 // Service Worker:预缓存全部文件,离线可玩;更新版本号 V 以刷新缓存
-const V = 'pxs-v18';
+const V = 'pxs-v19';
 const ASSETS = [
   './',
   'index.html',

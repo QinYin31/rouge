@@ -489,7 +489,18 @@ label.tg input:checked {
 .level-card.evo .lv-icon { border-color: var(--cinnabar); }
 .lv-name { font-size: 17px; font-weight: 700; letter-spacing: 2px; color: var(--ink); text-shadow: 0 1px 0 rgba(242, 236, 221, .8); }
 .level-card.evo .lv-name { color: var(--cinnabar); }
-.lv-desc { color: var(--ink-3); }
+.lv-desc {
+  max-width: 100%;
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: .25px;
+  color: var(--ink-2);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
 /* ---------- 永久强化商店 ---------- */
 .shop-gold {
@@ -560,6 +571,7 @@ label.tg input:checked {
   .bar { height: 16px; }
   #hud-boss { top: calc(60px + env(safe-area-inset-top)); left: 8%; right: 8%; }
   .btn.big { font-size: 15px; padding: 12px 14px; }
+  .lv-desc { font-size: 13px; line-height: 1.45; }
   .toggles { gap: 10px; }
   .screen { padding: 10px; }
 }

@@ -273,7 +273,7 @@ export const Screens = {
       nm.textContent = c.evoName || c.name;
       const ds = document.createElement('div');
       ds.className = 'lv-desc';
-      ds.style.cssText = 'font-size:12px;color:#8b9bb4;margin-top:2px;';
+      ds.style.cssText = 'margin-top:2px;';
       ds.textContent = c.evoDesc || c.desc;
       card.append(ico, nm, ds);
       bindTap(card, () => pick(c));
