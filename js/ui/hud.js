@@ -1,4 +1,4 @@
-// ===== 🖥️ UI agent 名下:HUD(脏检查写 DOM / 掉血闪红 / 低血警示 / 武器图标栏 / 冲刺按钮 / 属性面板) =====
+﻿// ===== 🖥️ UI agent 名下:HUD(脏检查写 DOM / 掉血闪红 / 低血警示 / 武器图标栏 / 冲刺按钮 / 属性面板) =====
 import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=17';
 import { WEAPONS } from '../game/weapons.js?v=17';
 import { CHARACTERS } from '../game/player.js?v=17';
@@ -108,7 +108,7 @@ export const HUD = {
 
     // ---- Boss 血条 ----
     const b = g.boss;
-    const on = !!(b && !b.dead && b.maxHp);
+    const on = !!(b && !b.dead && b.maxHp && b.hp > 0);
     if (on !== this._bossOn) { this._bossOn = on; this.el['hud-boss'].classList.toggle('hidden', !on); }
     if (on) {
       if (b !== this._bossRef || b.name !== this._bossName) {
@@ -117,7 +117,7 @@ export const HUD = {
       }
       const bp = Math.round(Math.max(0, Math.min(1, b.hp / b.maxHp)) * 1000) / 10;
       if (bp !== this._bossPct) { this._bossPct = bp; this.el['hud-boss-fill'].style.width = bp + '%'; }
-    } else this._bossRef = null;
+    } else { this._bossRef = null; if (this._bossPct !== 0) { this._bossPct = 0; this.el['hud-boss-fill'].style.width = '0%'; } }
 
     // ---- 武器槽(签名变化才重建:长度或等级变化) ----
     let sig = '';
@@ -297,3 +297,4 @@ export const HUD = {
     this._flashT = setTimeout(() => bar.classList.remove('dmg-flash'), 120);
   },
 };
+

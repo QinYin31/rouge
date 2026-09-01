@@ -1,4 +1,4 @@
-// ===== ⚔️ 战斗agent 名下:刷怪导演(时间曲线 / 怪潮包围 / 环带刷怪 / 无尽模式) =====
+﻿// ===== ⚔️ 战斗agent 名下:刷怪导演(时间曲线 / 怪潮包围 / 环带刷怪 / 无尽模式) =====
 import { spawnEnemy, ENEMY_TYPES, combatState } from './enemies.js?v=17';
 
 const MAX_E = 180;          // 同屏普通怪上限(CONTRACT v2.1 §4:200→180,超过不刷普通怪)

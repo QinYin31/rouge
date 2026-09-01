@@ -1,5 +1,5 @@
-// Service Worker:预缓存全部文件,离线可玩;更新版本号 V 以刷新缓存
-const V = 'pxs-v24';
+﻿// Service Worker:预缓存全部文件,离线可玩;更新版本号 V 以刷新缓存
+const V = 'pxs-v25';
 const ASSETS = [
   './',
   'index.html',
@@ -10,7 +10,7 @@ const ASSETS = [
   'js/core/engine.js', 'js/core/camera.js', 'js/core/input.js', 'js/core/save.js', 'js/core/audio.js',
   'js/game/player.js', 'js/game/map.js', 'js/game/particles.js', 'js/game/enemies.js',
   'js/game/weapons.js', 'js/game/spawner.js', 'js/game/boss.js', 'js/game/upgrades.js', 'js/game/pickups.js',
-  'js/ui/hud.js', 'js/ui/codex.js', 'js/ui/screens.js', 'js/ui/joystick.js',
+  'js/ui/hud.js', 'js/ui/codex.js', 'js/ui/bestiary.js', 'js/ui/screens.js', 'js/ui/joystick.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png',
 ];
 

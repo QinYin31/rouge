@@ -1,4 +1,4 @@
-// ===== ⚔️ 战斗agent 名下:局内升级池(水墨江湖版 + 进化选项 + 组合推荐) =====
+﻿// ===== ⚔️ 战斗agent 名下:局内升级池(水墨江湖版 + 进化选项 + 组合推荐) =====
 // rollChoices 只读不改等级;applyChoice 落实加成(被动写 p.bonuses 后 p.recalc())。
 // 进化(CONTRACT v2):武器 Lv5 + 绑定被动 Lv5 → 金色 evolve 选项必占一档,每武器仅一次。
 // 组合推荐(CONTRACT v2.2 §8):输出项可带 rec 字符串标记——
@@ -21,9 +21,9 @@ export const PASSIVES = {
   gold:   { name: '聚宝袋',   icon: 'p_gold',   maxLv: 5, desc: '财气随身,金币获取 +15%/级' },
   armor:  { name: '铁甲',     icon: 'p_armor',  maxLv: 5, desc: '金钟罩体,护甲 +1/级' },
   crit:   { name: '暴击之眼', icon: 'p_crit',   maxLv: 5, desc: '慧眼窥破绽,暴击率 +6%/级' },
-  guard:  { name: '玄武盾',   icon: 'p_armor',  maxLv: 5, desc: '玄武护体,护盾上限 +18/级并缓慢回复' },
-  fortify:{ name: '金刚体',   icon: 'p_hp',     maxLv: 5, desc: '金刚淬骨,受到伤害 -6%/级' },
-  retaliate:{ name: '反震诀', icon: 'p_crit',   maxLv: 5, desc: '借力打力,所受伤害的 12% 反伤近敌/级' },
+  guard:  { name: '玄武盾',   icon: 'p_armor',  maxLv: 5, desc: '玄武护体,护盾上限 +12/级并缓慢回复' },
+  fortify:{ name: '金刚体',   icon: 'p_hp',     maxLv: 5, desc: '金刚淬骨,受到伤害 -5%/级' },
+  retaliate:{ name: '反震诀', icon: 'p_crit',   maxLv: 5, desc: '借力打力,所受伤害的 8% 反伤近敌/级' },
 };
 
 const PASSIVE_BONUS = {
@@ -35,7 +35,7 @@ const PASSIVE_BONUS = {
   xp:     { key: 'xpMult',     mode: 'mult', v: 0.10 },
   gold:   { key: 'goldMult',   mode: 'mult', v: 0.15 },
   armor:  { key: 'armorFlat',  mode: 'add',  v: 1 },
-  fortify:{ key: 'damageTakenMult', mode: 'mult', v: -0.06 },
+  fortify:{ key: 'damageTakenMult', mode: 'mult', v: -0.05 },
   // crit 无 bonuses 槽:applyChoice 在 recalc 后按等级直接写入 p.stats.crit
 };
 
@@ -65,7 +65,7 @@ function recFor(g, c, plv) {
   }
   if (c.kind === 'newWeapon' || c.kind === 'weapon') { // ② 绑定心法已 ≥4 级 → 取此武器即可进化
     const d = WEAPONS[c.id];
-    if (d && d.evo && (plv[d.evo.passive] || 0) >= 3) return '可进化·' + d.evo.evoName;
+    if (d && d.evo && (plv[d.evo.passive] || 0) >= 2) return '可进化·' + d.evo.evoName;
     // ③ 协同向:焚天↔墨雨系(阴阳相激)、五雷↔墨雨系(感电连锁)
     if (c.id === 'holy') {
       if (own('fireball')) return '联动·阴阳相激';
@@ -112,7 +112,7 @@ export function rollChoices(g) {
       });
     } else if (!w.evolved) {
       const evo = d.evo;
-      if (evo && (plv[evo.passive] || 0) >= Math.min(3, PASSIVES[evo.passive].maxLv)) evoIds.push(w.id); // 门槛:心法3级(v2.3 下调)
+      if (evo && (plv[evo.passive] || 0) >= Math.min(2, PASSIVES[evo.passive].maxLv)) evoIds.push(w.id); // 门槛:心法3级(v2.3 下调)
     }
   }
   // 新武器(未满 4 把)
@@ -188,10 +188,10 @@ export function applyChoice(g, c) {
     }
     if (c.id === 'speed') p.dashCdMul = (p.dashCdMul || 1) * 0.96; // 疾风靴:冲刺冷却 -4%/级
     if (c.id === 'guard' && p.addShieldCapacity) {
-      p.addShieldCapacity(18);
-      p.shieldRegen = (p.shieldRegen || 0) + 0.6;
+      p.addShieldCapacity(12);
+      p.shieldRegen = (p.shieldRegen || 0) + 0.32;
     }
-    if (c.id === 'retaliate') p.reflectRatio = Math.min(0.7, (p.reflectRatio || 0) + 0.12);
+    if (c.id === 'retaliate') p.reflectRatio = Math.min(0.45, (p.reflectRatio || 0) + 0.08);
     p.recalc();
     // 暴击之眼:recalc 后按角色基础暴击叠加(基础 10% + 6%/级)
     p.stats.crit = (p.charBonus.crit || 0.1) + 0.06 * (g.passiveLv.crit || 0);

@@ -1,9 +1,9 @@
-// ===== 📜 图鉴agent 名下:组合图鉴(进化绝学 × 元素联动)=====
+﻿// ===== 📜 图鉴agent 名下:组合图鉴(进化绝学 × 元素联动)=====
 // 结构:#codex-tabs 两个标签 → #codex-list 条目(双列)点击选中(朱砂描边)→
 //       #codex-stage 播放该组合技循环演示(真实游戏精灵 drawSprite + 自绘简易粒子),
 //       #codex-info 展示合成路径(小 canvas 图标)+ 效果与达成条件。
 // 数据:进化条目由 WEAPONS[id].evo 自动生成(9 条);联动条目静态定义(3 条)。
-// 进化门槛(CONTRACT v2.3):武器满级 + 绑定心法 3 级。
+// 进化门槛(CONTRACT v2.3):武器满级 + 绑定心法 2 级。
 // 性能红线:RAF 仅在图鉴可见时运行,关闭立即 cancelAnimationFrame,不残留循环。
 import { WEAPONS, WEAPON_ORDER } from '../game/weapons.js?v=17';
 import { PASSIVES } from '../game/upgrades.js?v=17';
@@ -13,7 +13,7 @@ import { SFX } from '../core/audio.js?v=17';
 
 const TAU = Math.PI * 2;
 const W = 480, H = 270;        // 演示舞台逻辑分辨率(16:9,实际缓冲按容器宽度 × dpr)
-const EVO_PASS_LV = 3;         // v2.3:心法进化门槛 3 级
+const EVO_PASS_LV = 2;         // v2.3:心法进化门槛 3 级
 const ALIAS = { cd: '专注', xp: '聪慧', gold: '财运', magnet: '贪婪' }; // 心法别名(对照用)
 
 // 水墨配色(与 css 变量 / sprites 调色板一致)
@@ -70,12 +70,10 @@ const LINKS = [
     cond: '同时持有引魂灯与五雷,雷击标记敌人时触发',
   },
   {
-    kind: 'link', id: 'lanternShield', anim: 'yinyang', name: '灯护金钟', glyph: 'chain',
+    kind: 'link', id: 'lanternShield', anim: 'yinyang', name: '灯护金钟', glyph: 'yinyang',
     inputs: [{ sprite: 'w_flask', label: '引魂灯' }, { sprite: 'w_shield', label: '金钟罩' }],
     sub: '引魂灯 + 金钟罩',
     desc: '引魂灯落地时为侠客补充护盾,让持续作战更有容错。',
-    desc: '?????????????,??????????',
-    cond: '???????????,??????????',
     cond: '同时持有引魂灯与金钟罩,引魂灯释放时获得护盾',
   },
 ];

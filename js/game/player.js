@@ -60,14 +60,19 @@ export class Player {
   recalc() {
     const b = this.bonuses, c = this.char;
     const oldMax = this.stats ? this.stats.maxHp : 0;
-    const computedMaxHp = Math.round((c.hp + b.hpFlat) * b.hpMult);
+    // 等级成长：每级三维提升，缓解后期乏力
+    const lv = Math.max(1, this.level || 1);
+    const lvMight = 1 + (lv - 1) * 0.06;
+    const lvHpFlat = (lv - 1) * 8;
+    const lvSpeedMult = 1 + (lv - 1) * 0.012;
+    const computedMaxHp = Math.round((c.hp + b.hpFlat + lvHpFlat) * b.hpMult);
     const maxHp = Number.isFinite(computedMaxHp) && computedMaxHp > 0 ? computedMaxHp : Math.max(1, c.hp);
     const takenMult = (this.charBonus.damageTakenMult || 1) * (b.damageTakenMult || 1);
     this.stats = {
       maxHp,
-      might: c.might * b.mightMult,
+      might: c.might * b.mightMult * lvMight,
       cdMult: this.charBonus.cdMult * b.cdMult,
-      speed: c.speed * b.speedMult,
+      speed: c.speed * b.speedMult * lvSpeedMult,
       magnet: 60 + this.charBonus.magnetFlat + b.magnetFlat,
       xpMult: this.charBonus.xpMult * b.xpMult, goldMult: b.goldMult,
       armor: c.armor + b.armorFlat,

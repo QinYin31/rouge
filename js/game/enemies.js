@@ -1,4 +1,4 @@
-// ===== ⚔️ 战斗agent 名下:敌人系统(9 种常规 + 精英 + 双 Boss + 元素状态联动,水墨江湖版) =====
+﻿// ===== ⚔️ 战斗agent 名下:敌人系统(9 种常规 + 精英 + 双 Boss + 元素状态联动,水墨江湖版) =====
 // 职责:敌人 AI/移动/接触伤害、弹幕(双方)飞行与命中判定、区域(墨域/火区/落雷)结算、
 //       伤害唯一入口 damageEnemy(数字/暴击/击退/闪白/死亡掉落)。
 // 联动(CONTRACT v2):e.status={burn,wet} 秒数;焚天命中→灼烧,墨雨/墨染→墨湿;
@@ -347,12 +347,16 @@ function placeMireZone(g, e, px, py) {
   const a = Math.random() * TAU;
   const dist = 42 + Math.random() * 78;
   const tickDmg = Math.max(4, Math.min(32, Math.round(e.dmg * 0.45)));
+  const cx = px + Math.cos(a) * dist, cy = py + Math.sin(a) * dist;
+  if (g.spawnText) g.spawnText(cx, cy - 36, '泥沼涌动!', { color: '#8b9bb4', size: 14, life: 1.0 });
+  if (g.addParticles) g.addParticles(cx, cy, { n: 10, color: '#8b9bb4', speed: 35, life: 0.9, size: 4 });
   return addEnemyZone(g, {
-    x: px + Math.cos(a) * dist, y: py + Math.sin(a) * dist,
-    r: 78, life: 3.2, maxLife: 3.2,
-    tickDmg, tick: 0.55, tickT: 0.2,
-    playerTickDmg: tickDmg, playerTick: 0.55, playerTickT: 0.2,
-    sprite: 'zone_holy', tint: '#68386c',
+    x: cx, y: cy,
+    r: 78, life: 4.6, maxLife: 4.6,
+    tickDmg: 0, tick: 0.55, tickT: 1.15,
+    playerTickDmg: 0, playerTick: 0.55, playerTickT: 1.15,
+    sprite: 'zone_holy', tint: '#b8c5d6',
+    mireWarn: 1.05, mireTickDmg: tickDmg,
   });
 }
 
@@ -496,6 +500,23 @@ export function initCombat(g) {
       const z = g.zones[i];
       z.life -= dt;
       if (z.life <= 0) { g.remove(g.zones, i); continue; }
+      if (z.mireWarn !== undefined) {
+        z.mireWarn -= dt;
+        if (z.mireWarn <= 0) {
+          const real = z.mireTickDmg || 8;
+          z.mireWarn = undefined;
+          z.tickDmg = real;
+          z.playerTickDmg = real;
+          z.tint = '#68386c';
+          z.playerTickT = 0.15;
+          z.tickT = 0.15;
+          if (g.addParticles) g.addParticles(z.x, z.y, { n: 12, color: '#68386c', speed: 80, life: 0.5, size: 5 });
+          if (g.spawnText) g.spawnText(z.x, z.y - 20, '泥沼爆发!', { color: '#68386c', size: 13, life: 0.8 });
+        } else {
+          if (g.addParticles && Math.random() < dt * 6) g.addParticles(z.x + (Math.random()-0.5)*z.r*0.6, z.y + (Math.random()-0.5)*z.r*0.6, { n:1, color:'#8b9bb4', speed:12, life:0.45, size:3 });
+        }
+      }
+      if (z.mireWarn !== undefined) continue;
       if (z.enemyZone && p) {
         const fx = p.x - z.x, fy = p.y - z.y;
         if (fx * fx + fy * fy > ENEMY_RECYCLE_D2) { g.remove(g.zones, i); continue; }
@@ -589,7 +610,7 @@ export function initCombat(g) {
           e.atkCd -= dt;
           if (e.atkCd <= 0 && d < 700) {
             placeMireZone(g, e, px, py);
-            e.atkCd = 3.8 + Math.random() * 1.4;
+            e.atkCd = 6.2 + Math.random() * 1.8;
             g.addParticles(px, py, { n: 7, color: '#68386c', speed: 55, life: 0.45, size: 4 });
           }
           break;

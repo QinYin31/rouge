@@ -1,4 +1,4 @@
-// 《像素幸存者》主入口:装配全部模块、场景流转
+﻿// 《像素幸存者》主入口:装配全部模块、场景流转
 import { Engine, Bus } from './core/engine.js?v=17';
 import { Camera } from './core/camera.js?v=17';
 import { Input } from './core/input.js?v=17';
@@ -18,6 +18,7 @@ import { HUD } from './ui/hud.js?r=8';
 import { Screens } from './ui/screens.js?v=17';
 import { Joystick } from './ui/joystick.js?v=17';
 import { Codex } from './ui/codex.js?v=17';
+import { Bestiary } from './ui/bestiary.js?v=17';
 
 const canvas = document.getElementById('game');
 const engine = new Engine(canvas);
@@ -156,10 +157,14 @@ function startRun(charId) {
   engine.spawnText(0, -50, '活下来!', { color: '#fee761', size: 26, life: 2 });
 }
 
-// 组合图鉴入口(主菜单)
+// 组合图鉴与怪物图鉴入口(主菜单)
 document.getElementById('btn-codex').addEventListener('click', () => {
   SFX.play('click');
   Codex.open();
+});
+document.getElementById('btn-bestiary').addEventListener('click', () => {
+  SFX.play('click');
+  Bestiary.open();
 });
 
 function applySetting(k, v) {
