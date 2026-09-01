@@ -509,7 +509,7 @@ export function makeWeapon(id) {
             this.timer = c.cd * p.stats.cdMult;
             for (let i = 0; i < c.n; i++) {
               const a = a0 + (i - (c.n - 1) / 2) * 0.34;
-              g.addProjectile({ x: p.x, y: p.y, vx: Math.cos(a) * c.spd, vy: Math.sin(a) * c.spd, r: 9, dmg: 1, life: 0.7, pierce: 0, rot: a, sprite: 'w_holy_evo', ghost: 1, zone: { x: 0, y: 0, r: c.r * p.stats.areaMult, life: c.dur, maxLife: c.dur, tickDmg: c.dmg * p.stats.might, tick: c.tick, tickT: c.tick, sprite: 'zone_holy', burnOn: 1 } });
+              g.addProjectile({ x: p.x, y: p.y, vx: Math.cos(a) * c.spd, vy: Math.sin(a) * c.spd, r: 9, dmg: 0, life: 0.7, pierce: 0, rot: a, sprite: 'w_holy_evo', ghost: 1, zone: { x: 0, y: 0, r: c.r * p.stats.areaMult, life: c.dur, maxLife: c.dur, tickDmg: c.dmg * p.stats.might, tick: c.tick, tickT: c.tick, sprite: 'zone_holy', burnOn: 1 } });
             }
             if (e) markNearby(g, e.x, e.y, c.r * p.stats.areaMult, 'lanternMarkUntil', 2.3);
             if (ownsWeapon(p, 'shield') && p.gainShield) { p.gainShield(14); comboText(g, 'lanternShield', p.x, p.y, '灯护金钟!'); }
@@ -697,7 +697,7 @@ export function makeWeapon(id) {
             }
             g.addProjectile({
               x: px, y: py, vx: dx / T, vy: dy / T, r: 8,
-              dmg: 1, life: T, pierce: 0, rot: 0, sprite: 'w_flask', ghost: 1, spin: 9,
+              dmg: 0, life: T, pierce: 0, rot: 0, sprite: 'w_flask', ghost: 1, spin: 9,
               zone: {
                 x: 0, y: 0, r: b.r[L] * p.stats.areaMult, life: b.dur[L], maxLife: b.dur[L],
                 tickDmg: b.tick[L] * p.stats.might, tick: 0.4, tickT: 0.4, sprite: 'zone_holy',
@@ -736,7 +736,7 @@ export function makeWeapon(id) {
           this.timer = b.cd[L] * p.stats.cdMult;
           for (let i = 0; i < b.n[L]; i++) {
             const a = a0 + (i - (b.n[L] - 1) / 2) * 0.34;
-            g.addProjectile({ x: p.x, y: p.y, vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: 8, dmg: 1, life: 0.7, pierce: 0, rot: a, sprite: 'w_flask', ghost: 1, zone: { x: 0, y: 0, r: b.r[L] * p.stats.areaMult, life: b.dur[L], maxLife: b.dur[L], tickDmg: b.dmg[L] * p.stats.might, tick: b.tick[L], tickT: b.tick[L], sprite: 'zone_holy', burnOn: 1 } });
+            g.addProjectile({ x: p.x, y: p.y, vx: Math.cos(a) * b.spd[L], vy: Math.sin(a) * b.spd[L], r: 8, dmg: 0, life: 0.7, pierce: 0, rot: a, sprite: 'w_flask', ghost: 1, zone: { x: 0, y: 0, r: b.r[L] * p.stats.areaMult, life: b.dur[L], maxLife: b.dur[L], tickDmg: b.dmg[L] * p.stats.might, tick: b.tick[L], tickT: b.tick[L], sprite: 'zone_holy', burnOn: 1 } });
           }
           if (e) markNearby(g, e.x, e.y, b.r[L] * p.stats.areaMult, 'lanternMarkUntil', 2.3);
           if (ownsWeapon(p, 'shield') && p.gainShield) { p.gainShield(8 + L * 2); comboText(g, 'lanternShield', p.x, p.y, '灯护金钟!'); }
