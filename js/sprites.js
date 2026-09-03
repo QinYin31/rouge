@@ -1,4 +1,4 @@
-// ===== 🎨 美术:调色板 + 点阵图集聚合 + 烘焙绘制(水墨武侠·高像素版) =====
+﻿// ===== 🎨 美术:调色板 + 点阵图集聚合 + 烘焙绘制(水墨武侠·高像素版) =====
 // 高像素版 v3:点阵密度 ×3(SCALE 3→1),每个精灵的"点阵尺寸×SCALE"即世界占位与旧版
 // 完全一致 —— 碰撞、地图节奏、UI 适配、视野全部不变(见 CONTRACT.md「高像素美术 v3」)。
 //
@@ -136,7 +136,7 @@ export function drawSprite(ctx, name, cx, cy, o = {}) {
   }
   // 1K/2K: hero_white 96/128/1024 auto scale to keep world 48
   let baseScale = SCALE * (o.scale || 1);
-  if (name.startsWith('hero_white')) {
+  if (name.startsWith('hero_')) {
     const expected = 48;
     if (c.width !== expected) baseScale *= expected / c.width;
   }
@@ -160,3 +160,4 @@ export function drawSprite(ctx, name, cx, cy, o = {}) {
   ctx.drawImage(c, -w / 2, -h / 2, w, h);
   ctx.restore();
 }
+

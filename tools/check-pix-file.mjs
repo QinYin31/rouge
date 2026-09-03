@@ -1,4 +1,4 @@
-// ===== 单文件美术校验(美术子代理自检用) =====
+﻿// ===== 单文件美术校验(美术子代理自检用) =====
 // 用法:node tools/check-pix-file.mjs js/pix/hero-knight.js [更多文件...]
 // 只依赖 js/pix/palette.js 与 tools/legacy-pix.mjs,不受其他美术文件影响,可并发使用。
 // 校验:单一具名导出 / 行列规整 / 字符全在调色板 / 尺寸契约(旧图×3 或新帧=基础帧)。
@@ -47,7 +47,12 @@ for (const arg of process.argv.slice(2)) {
     let want = null, tag = '';
     if (LEGACY_PIX[name]) {
       const l = LEGACY_PIX[name];
-      want = [l[0].length * 3, l.length * 3]; tag = '旧图×3';
+      const w3 = l[0].length * 3, h3 = l.length * 3;
+      if (name.startsWith('hero_') && rows[0].length === w3*2 && rows.length === h3*2) {
+        want = [w3*2, h3*2]; tag = '旧图×6(96高密度)';
+      } else {
+        want = [w3, h3]; tag = '旧图×3';
+      }
     } else if (NEW_SIZES[name]) {
       want = NEW_SIZES[name]; tag = '新增';
     } else {
@@ -64,3 +69,4 @@ for (const arg of process.argv.slice(2)) {
 console.log(`\n共检查 ${checked} 张精灵,${errors} 处错误。`);
 if (errors) process.exit(1);
 console.log('单文件校验通过。目检请跑:node tools/preview-file.mjs ' + (process.argv[2] || ''));
+
