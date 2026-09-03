@@ -221,35 +221,40 @@ export class Player {
     // 高像素版:4 帧走路循环 + 待机呼吸帧;新帧缺失时回退旧 _0/_1 二帧
     let name;
     if (this.moving) {
-      name = this.char.sprite + '_' + (Math.floor(this.animT / 0.11) % 4);
+      name = this.char.sprite + '_' + (Math.floor(this.animT / 0.09) % 4);
       if (!has(name)) name = this.char.sprite + (Math.floor(this.animT / 0.16) % 2 === 1 ? '_1' : '_0');
     } else {
       name = this.char.sprite + '_idle';
       if (!has(name)) name = this.char.sprite + '_0';
     }
-    // lively v2: exaggerated walk + breathing + shadow, no sticker
+        // lively v3: more exaggerated, no sticker - bigger bob, squash, dust
     let bx=0, by=0, sx=1, sy=1, ang=0;
     let shadowScale=1, shadowAlpha=0.22;
     if (this.moving) {
-      const phase = (this.animT * 10) % (Math.PI*2);
-      by = Math.sin(this.animT * 10) * 1.9;
-      bx = Math.sin(this.animT * 10 + Math.PI/2) * 0.75;
-      ang = Math.sin(this.animT * 10) * 0.045;
-      const k = Math.abs(Math.sin(this.animT * 10));
-      sy = 1 - k * 0.045;
-      sx = 1 + k * 0.032;
-      shadowScale = 1 - k * 0.18;
-      shadowAlpha = 0.18 + k * 0.12;
+      by = Math.sin(this.animT * 12) * 3.0;
+      bx = Math.sin(this.animT * 12 + Math.PI/2) * 1.1;
+      ang = Math.sin(this.animT * 12) * 0.08;
+      const k = Math.abs(Math.sin(this.animT * 12));
+      sy = 1 - k * 0.072;
+      sx = 1 + k * 0.055;
+      shadowScale = 1 - k * 0.28;
+      shadowAlpha = 0.16 + k * 0.16;
+      const cur = Math.floor(this.animT / 0.09) % 4;
+      const prv = Math.floor((this.animT - 0.016) / 0.09) % 4;
+      if (cur !== prv && (cur===0 || cur===2) && this._g) {
+        this._g.addParticles(this.x, this.y+18, {n:2, color:'#d8cfb4', speed:22, life:0.22, size:2.2});
+      }
     } else {
       const t = this._g ? this._g.time : 0;
-      by = Math.sin(t * 2.2) * 1.55;
-      sy = 1 + Math.sin(t * 2.2) * 0.028;
-      sx = 1 - Math.sin(t * 2.2) * 0.015;
-      ang = Math.sin(t * 1.1) * 0.018;
-      shadowScale = 1 + Math.sin(t * 2.2) * 0.06;
-      shadowAlpha = 0.22 + Math.sin(t * 2.2) * 0.04;
+      by = Math.sin(t * 1.9) * 2.2 + Math.sin(t*3.7)*0.35;
+      sy = 1 + Math.sin(t * 1.9) * 0.028;
+      sx = 1 - Math.sin(t * 1.9) * 0.016;
+      ang = Math.sin(t * 0.9) * 0.025 + Math.sin(t*2.1)*0.01;
+      bx = Math.sin(t*0.85)*0.6;
+      shadowScale = 1 + Math.sin(t * 1.9) * 0.09;
+      shadowAlpha = 0.21 + Math.sin(t * 1.9) * 0.05;
     }
-    if (this.iframes > 0 && Math.floor(this.iframes * 12) % 2 === 0) return;
+        if (this.iframes > 0 && Math.floor(this.iframes * 12) % 2 === 0) return;
     // ground shadow: separate from sprite, stays on ground, scales with bob
     ctx.save();
     ctx.globalAlpha = shadowAlpha;
