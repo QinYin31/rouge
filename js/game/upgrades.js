@@ -12,7 +12,7 @@ import { Bus } from '../core/engine.js?v=17';
 
 // 9 种局内被动(数值更强);crit 暴击之眼只进升级池
 export const PASSIVES = {
-  might:  { name: '力量',     icon: 'p_might',  maxLv: 5, desc: '内力浑厚,攻击伤害 +12%/级' },
+  might:  { name: '力量',     icon: 'p_might',  maxLv: 5, desc: '内力浑厚,攻击伤害 +10%/级' },
   cd:     { name: '沙漏',     icon: 'p_cd',     maxLv: 5, desc: '心如止水,武器冷却 -8%/级' },
   speed:  { name: '疾风靴',   icon: 'p_speed',  maxLv: 5, desc: '身法 +8%/级,冲刺冷却 -4%/级' },
   hp:     { name: '生命之心', icon: 'p_hp',     maxLv: 5, desc: '气血充盈,生命上限 +20/级' },
@@ -27,7 +27,7 @@ export const PASSIVES = {
 };
 
 const PASSIVE_BONUS = {
-  might:  { key: 'mightMult',  mode: 'mult', v: 0.12 },
+  might:  { key: 'mightMult',  mode: 'mult', v: 0.10 },
   cd:     { key: 'cdMult',     mode: 'mult', v: -0.08 },
   speed:  { key: 'speedMult',  mode: 'mult', v: 0.08 },
   hp:     { key: 'hpFlat',     mode: 'add',  v: 20 },

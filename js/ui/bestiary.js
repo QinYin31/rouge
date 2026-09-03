@@ -46,13 +46,14 @@ let ui = null, tab = 'normal', sel = null, openFlag = false, raf = 0, bound = fa
 let stageCanvas = null, stageCtx = null;
 const el = id => document.getElementById(id);
 function iconCanvas(spec, px) {
-  const d = Math.min(window.devicePixelRatio || 1, 2);
+  const d = Math.min(window.devicePixelRatio || 1, 3); // 高像素版:3× 点阵需要更多物理像素
   const c = document.createElement('canvas');
   c.width = Math.round(px*d); c.height = Math.round(px*d);
   c.style.width = px+'px'; c.style.height = px+'px';
   const x = c.getContext('2d'); x.imageSmoothingEnabled = false; x.scale(d,d);
   const sz = spriteSize(spec.sprite) || {w:16,h:16};
-  const s = Math.min(1.5, (px*0.86)/(Math.max(sz.w,sz.h)*SCALE));
+  const m = Math.max(sz.w, sz.h, 1);
+  const s = Math.min(1.5, Math.max(1/d, px*0.86/(m*SCALE)), px*0.98/(m*SCALE));
   drawSprite(x, spec.sprite, px/2, px/2, {scale:s});
   return c;
 }

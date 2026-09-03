@@ -8,7 +8,7 @@ const TOGGLE_DEFS = [['sfx', '音效'], ['music', '音乐'], ['shake', '震动']
 
 // 小尺寸像素图标 canvas(names 依序尝试,第一个绘制成功的生效)
 function spriteCanvas(names, px) {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, 3); // 高像素版:3× 点阵需要更多物理像素
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(px * dpr));
   c.height = c.width;
@@ -21,7 +21,7 @@ function spriteCanvas(names, px) {
     try {
       const sz = spriteSize(name) || { w: 16, h: 16 };
       const m = Math.max(sz.w, sz.h, 1);
-      const s = Math.min(1.6, px * 0.84 / (m * SCALE));
+      const s = Math.min(1.6, Math.max(1 / dpr, px * 0.84 / (m * SCALE)), px * 0.98 / (m * SCALE));
       x.save(); x.scale(dpr, dpr);
       drawSprite(x, name, px / 2, px / 2, { scale: s });
       x.restore();

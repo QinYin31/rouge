@@ -10,7 +10,10 @@ import { PIX, PAL, SCALE, has, spriteSize } from '../js/sprites.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const REQUIRED = [
-  'hero_knight_0', 'hero_knight_1', 'hero_mage_0', 'hero_mage_1', 'hero_ranger_0', 'hero_ranger_1',
+  'hero_knight_0', 'hero_knight_1', 'hero_knight_2', 'hero_knight_3', 'hero_knight_idle',
+  'hero_mage_0', 'hero_mage_1', 'hero_mage_2', 'hero_mage_3', 'hero_mage_idle',
+  'hero_ranger_0', 'hero_ranger_1', 'hero_ranger_2', 'hero_ranger_3', 'hero_ranger_idle',
+  'hero_white_0', 'hero_white_1', 'hero_white_2', 'hero_white_3', 'hero_white_idle',
   'slime', 'bat', 'skeleton', 'spider', 'brute', 'bomber', 'turtle', 'wisp', 'reaper',
   'boss_golem', 'boss_overlord',
   'w_knife', 'w_bolt', 'w_arrow', 'w_orb', 'w_fireball', 'w_boomerang', 'w_flask', 'w_shield',
@@ -19,10 +22,12 @@ const REQUIRED = [
   'tile_grass_0', 'tile_grass_1', 'tile_grass_2', 'tile_dirt',
   'dec_rock', 'dec_flower', 'dec_bones', 'dec_stump',
   'p_might', 'p_cd', 'p_speed', 'p_hp', 'p_magnet', 'p_xp', 'p_gold', 'p_armor', 'p_crit',
-  'hero_face_knight', 'hero_face_mage', 'hero_face_ranger',
+  'hero_face_knight', 'hero_face_mage', 'hero_face_ranger', 'hero_face_white',
   // 水墨 v2:进化超武 9 + 天眼
   'w_knife_evo', 'w_wand_evo', 'w_bow_evo', 'w_orb_evo', 'w_lightning_evo',
   'w_fireball_evo', 'w_boomerang_evo', 'w_holy_evo', 'w_shield_evo',
+  // 高像素 v3:表现层小精灵
+  'fx_dot', 'fx_streak', 'fx_ink',
 ];
 
 let errors = 0;
@@ -51,19 +56,30 @@ for (const [name, rows] of Object.entries(PIX)) {
   console.log(`  ✓ ${name} ${w}×${rows.length}`);
 }
 
-// ---- 尺寸契约抽查 ----
+// ---- 尺寸契约抽查(高像素 v3:全部为旧尺寸×3,世界占位与旧版一致) ----
 const SIZE_WANT = {
-  boss_golem: [40, 40], boss_overlord: [56, 56], lightning_v: [8, 28], zone_holy: [48, 48],
-  skeleton: [16, 16], brute: [20, 20], turtle: [18, 18], wisp: [12, 12], reaper: [20, 20],
-  hero_knight_0: [16, 16], hero_face_knight: [16, 16], tile_grass_0: [16, 16], dec_rock: [16, 16],
-  p_might: [16, 16], chest: [16, 16], meat: [12, 12], magnet: [12, 12], p_crit: [16, 16],
-  slime: [14, 14], bat: [14, 14], spider: [14, 14], bomber: [14, 14],
-  w_knife: [10, 10], w_bolt: [8, 8], w_arrow: [12, 8], w_orb: [10, 10],
-  w_fireball: [12, 12], w_boomerang: [12, 12], w_flask: [10, 10], w_shield: [16, 16],
-  // 进化超武(随原武器或略大)
-  w_knife_evo: [16, 16], w_wand_evo: [16, 16], w_bow_evo: [18, 8], w_orb_evo: [16, 16],
-  w_lightning_evo: [12, 32], w_fireball_evo: [16, 16], w_boomerang_evo: [16, 16],
-  w_holy_evo: [24, 24], w_shield_evo: [16, 16],
+  boss_golem: [120, 120], boss_overlord: [168, 168], lightning_v: [24, 84], zone_holy: [144, 144],
+  skeleton: [48, 48], brute: [60, 60], turtle: [54, 54], wisp: [36, 36], reaper: [60, 60],
+  hero_knight_0: [48, 48], hero_knight_1: [48, 48], hero_knight_2: [48, 48], hero_knight_3: [48, 48], hero_knight_idle: [48, 48],
+  hero_mage_0: [48, 48], hero_mage_1: [48, 48], hero_mage_2: [48, 48], hero_mage_3: [48, 48], hero_mage_idle: [48, 48],
+  hero_ranger_0: [48, 48], hero_ranger_1: [48, 48], hero_ranger_2: [48, 48], hero_ranger_3: [48, 48], hero_ranger_idle: [48, 48],
+  hero_white_0: [48, 48], hero_white_1: [48, 48], hero_white_2: [48, 48], hero_white_3: [48, 48], hero_white_idle: [48, 48],
+  hero_face_knight: [48, 48], hero_face_mage: [48, 48], hero_face_ranger: [48, 48], hero_face_white: [48, 48],
+  tile_grass_0: [48, 48], tile_grass_1: [48, 48], tile_grass_2: [48, 48], tile_dirt: [48, 48],
+  dec_rock: [48, 48], dec_flower: [48, 48], dec_bones: [48, 48], dec_stump: [48, 48],
+  p_might: [48, 48], p_cd: [48, 48], p_speed: [48, 48], p_hp: [48, 48], p_magnet: [48, 48],
+  p_xp: [48, 48], p_gold: [48, 48], p_armor: [48, 48], p_crit: [48, 48],
+  chest: [48, 48], meat: [36, 36], magnet: [36, 36], coin: [24, 24],
+  gem_b: [24, 24], gem_g: [24, 24], gem_r: [24, 24],
+  slime: [42, 42], bat: [42, 42], spider: [42, 42], bomber: [42, 42],
+  w_knife: [30, 30], w_bolt: [24, 24], w_arrow: [36, 24], w_orb: [30, 30],
+  w_fireball: [36, 36], w_boomerang: [36, 36], w_flask: [30, 30], w_shield: [48, 48],
+  // 进化超武(随原武器或略大,×3)
+  w_knife_evo: [48, 48], w_wand_evo: [48, 48], w_bow_evo: [54, 24], w_orb_evo: [48, 48],
+  w_lightning_evo: [36, 96], w_fireball_evo: [48, 48], w_boomerang_evo: [48, 48],
+  w_holy_evo: [72, 72], w_shield_evo: [48, 48],
+  // 高像素 v3:表现层小精灵
+  fx_dot: [6, 6], fx_streak: [12, 3], fx_ink: [10, 10],
 };
 for (const [n, [w, h]] of Object.entries(SIZE_WANT)) {
   const s = spriteSize(n);

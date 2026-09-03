@@ -2,8 +2,8 @@
 // 结构契约:{v,gold,chars,settings,best,totalRuns,totalKills}  key:'pxs_save'
 const KEY = 'pxs_save';
 
-// 角色白名单(与 CHARACTERS 固定三项一致,防脏数据混入)
-const VALID_CHARS = ['knight', 'mage', 'ranger'];
+// 角色白名单(与 CHARACTERS 一致,防脏数据混入)
+const VALID_CHARS = ['knight', 'mage', 'ranger', 'white'];
 
 function defaults() {
   return {

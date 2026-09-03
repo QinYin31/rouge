@@ -9,7 +9,7 @@ const STAT_LABELS = ['攻击', '冷却', '护甲', '移速', '范围', '经验',
 
 // 小尺寸像素图标 canvas(关闭平滑、按 dpr 渲染保持锐利)
 function spriteCanvas(name, px) {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, 3); // 高像素版:3× 点阵需要更多物理像素
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(px * dpr));
   c.height = c.width;
@@ -21,7 +21,8 @@ function spriteCanvas(name, px) {
   try {
     const sz = spriteSize(name) || { w: 16, h: 16 };
     const m = Math.max(sz.w, sz.h, 1);
-    const s = Math.min(1.6, px * 0.84 / (m * SCALE));
+    // dpr 感知:高密度点阵尽量 1:1 落到物理像素,盒内放不下时按盒宽收
+    const s = Math.min(1.6, Math.max(1 / dpr, px * 0.84 / (m * SCALE)), px * 0.98 / (m * SCALE));
     x.save(); x.scale(dpr, dpr);
     drawSprite(x, name, px / 2, px / 2, { scale: s });
     x.restore();
@@ -65,6 +66,9 @@ export const HUD = {
       this._hp = -1; this._hpTxt = ''; this._hpW = ''; this._xpW = ''; this._sec = -1;
       this._kills = -1; this._gold = -1; this._lv = -1;
       this._bossOn = false; this._bossRef = null; this._bossName = ''; this._bossPct = -1;
+      // 修复 Boss 血条残留:强制归位 DOM(最终 Boss 死亡与结算同帧时,死亡帧的隐藏切换会被跳过)
+      this.el['hud-boss'].classList.add('hidden');
+      this.el['hud-boss-fill'].style.width = '0%';
       this._dashT = -1e9; this._dashOn = null; this._dashTxt = null; // 冲刺按钮强制首帧刷新
       this._statT = -1e9; this._statSig = '';                       // 属性面板强制刷新
       this._applyStatWidth();

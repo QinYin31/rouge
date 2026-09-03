@@ -243,3 +243,45 @@ knife(剑气)从「单发飞刀平A」改为**贯穿扇形长距离攻击**:朝�
   - 协同向:拥有焚天(或进化)时选项含墨雨/墨染乾坤 → rec:'联动·阴阳相激';拥有墨雨系时选项含五雷 → rec:'联动·感电连锁';拥有五雷时选项含墨雨系 → rec:'联动·感电连锁'
   - rec 项排序优先(置于卡列最前),rollChoices 不强制必占档,但同分时优先
 - 🖥️ screens.js showLevelUp:对 rec 卡渲染右上角标「推荐·xxx」(朱砂底纸色字小签,内联兜底样式即可),并保持 evo 卡置顶逻辑共存(evo 优先于 rec)
+
+---
+
+# 契约 v3:高像素美术(点阵密度 ×3,世界占位不变)
+
+## 设计原则
+- 点阵密度 ×3(主体 16→48px,Boss 40/56→120/168,zone 48→144),`SCALE 3→1`。
+- **世界占位不变**:每个精灵"点阵尺寸×SCALE"与旧版"旧尺寸×3"严格相等 ⇒ 碰撞比例、地图节奏(TILE=32 与 tile 显示 48px)、zone 半径换算(/72、/116)、UI 适配、相机视野全部不变,玩法代码零改动。
+- 自动化闸门:`node tools/check-invariants.mjs`(世界占位不变量,加 `--strict` 为终验)与 `node tools/validate-sprites.mjs`(结构/调色板/尺寸契约)必须全绿。
+
+## 美术模块布局(🎨美术agent 名下,各文件互相独立、可并行维护)
+```
+js/sprites.js            聚合器:SCALE/PAL 再导出 + PIX 合并 + 烘焙/绘制(raster/bake/has/spriteSize/drawSprite)
+js/pix/palette.js        调色板(61 键,唯一色源;新增色先加这里)
+js/pix/brush.js          程序化画笔(grid/ppx/prect/pell/line/outlinePass/toRows)
+js/pix/ground.js         tile×4 + 装饰×4 + zone_holy(144 生成器)
+js/pix/hero-knight.js    剑客:hero_knight_0..3 + _idle + hero_face_knight
+js/pix/hero-mage.js      道人:hero_mage_0..3 + _idle + hero_face_mage
+js/pix/hero-ranger.js    游侠:hero_ranger_0..3 + _idle + hero_face_ranger
+js/pix/hero-white.js     白衣剑仙(高解锁角色):hero_white_0..3 + _idle + hero_face_white
+js/pix/enemies-a.js      slime/bat/skeleton/spider/bomber
+js/pix/enemies-b.js      turtle/brute/wisp/reaper
+js/pix/bosses.js         boss_golem(120) / boss_overlord(168,程序化生成)
+js/pix/projectiles.js    武器弹体×9 + lightning_v + 进化×9
+js/pix/items.js          拾取×7 + 被动图标×10
+js/pix/fx.js             表现层:fx_dot/fx_streak/fx_ink(粒子系统 tint 着色用)
+```
+- 工具:`node tools/check-pix-file.mjs js/pix/<file>.js` 单文件校验(可并发);`node tools/preview-file.mjs js/pix/<file>.js` 出 PNG 接触表目检;`tools/legacy-pix.mjs` 为旧图只读快照(设计参考)。
+
+## 精灵清单变化
+- 英雄每角色由 2 帧 → **4 帧走路循环 `_0.._3`(按 0→1→2→3 循环)+ 待机帧 `_idle`**;player.js 已支持,新帧缺失自动回退 `_0/_1`。
+- 新增:`fx_dot`(6×6) `fx_streak`(12×3,sx 非等比拉长) `fx_ink`(10×10)。
+- 尺寸契约:全部为旧尺寸×3,见 tools/validate-sprites.mjs 的 SIZE_WANT。
+
+## drawSprite 扩展
+- `o.sx / o.sy`:非等比附加缩放(粒子拖尾用),其余参数不变;`o.frame` 备用参数保留。
+
+## 表现层升级(随 v3 生效)
+- 粒子由 fillRect 方块改为墨点/笔触精灵(tint 着色,fx.js 提供形状),低配预算逻辑不变。
+- UI 图标 canvas 全部 dpr 感知(上限 3),高密度点阵可 1:1 落到物理像素。
+- 引擎 `dprCap 2→3`(流畅画质开关仍为 dpr=1)。
+- sw.js 缓存版本随美术模块清单更新(V=pxs-v26 起)。

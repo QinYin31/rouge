@@ -7,7 +7,7 @@
 // 性能红线:RAF 仅在图鉴可见时运行,关闭立即 cancelAnimationFrame,不残留循环。
 import { WEAPONS, WEAPON_ORDER } from '../game/weapons.js?v=17';
 import { PASSIVES } from '../game/upgrades.js?v=17';
-import { drawSprite, spriteSize, SCALE } from '../sprites.js?v=17';
+import { drawSprite, spriteSize, SCALE, has } from '../sprites.js?v=17';
 import { Screens } from './screens.js?v=17';
 import { SFX } from '../core/audio.js?v=17';
 
@@ -88,7 +88,7 @@ const lerp = (a, b, k) => a + (b - a) * k;
 
 // 精灵小图标 canvas(列表/路径节点用;drawSprite 直绘,像素风)
 function iconCanvas(spec, px) {
-  const d = Math.min(window.devicePixelRatio || 1, 2);
+  const d = Math.min(window.devicePixelRatio || 1, 3); // 高像素版:3× 点阵需要更多物理像素
   const c = document.createElement('canvas');
   c.width = Math.round(px * d); c.height = Math.round(px * d);
   c.style.width = px + 'px'; c.style.height = px + 'px';
@@ -98,7 +98,8 @@ function iconCanvas(spec, px) {
   if (spec.glyph) paintGlyph(x, spec.glyph, px);
   else {
     const sz = spriteSize(spec.sprite) || { w: 16, h: 16 };
-    const s = Math.min(1.5, (px * 0.86) / (Math.max(sz.w, sz.h) * SCALE));
+    const m = Math.max(sz.w, sz.h, 1);
+    const s = Math.min(1.5, Math.max(1 / d, px * 0.86 / (m * SCALE)), px * 0.98 / (m * SCALE));
     drawSprite(x, spec.sprite, px / 2, px / 2, { scale: s });
   }
   return c;
@@ -249,7 +250,9 @@ function shadow(ctx, x, y, r) {
   ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.4, 0, 0, TAU); ctx.fill();
 }
 function drawHero(ctx, t, x, y, base, o = {}) {
-  const f = ((t * 3.6) | 0) % 2; // 2 帧走路动画
+  // 高像素版:4 帧走路循环(新帧缺失自动回退旧 2 帧)
+  let f = ((t * 7.2) | 0) % 4;
+  if (!has(base + '_' + f)) f = ((t * 3.6) | 0) % 2;
   shadow(ctx, x, y + 22, 13);
   drawSprite(ctx, base + '_' + f, x, y, { flip: !!o.flip, scale: o.scale || 1 });
 }

@@ -1,5 +1,6 @@
 // 粒子与飘字(对象池)
 import { Bus } from '../core/engine.js?v=17';
+import { drawSprite } from '../sprites.js?v=17';
 
 const isMobile = window.innerWidth < 600;
 const MAX_P = isMobile ? 320 : 700, MAX_T = 90; // 移动端减预算保流畅
@@ -27,17 +28,16 @@ export function initParticles(g) {
   g.addDrawer('fx', ctx => {
     for (const p of pool) {
       if (!g.inView(p.x, p.y, 20)) continue;
-      ctx.globalAlpha = Math.min(1, p.life / p.maxLife * 1.5);
-      ctx.fillStyle = p.color;
-      const s = p.size;
+      const a = Math.min(1, p.life / p.maxLife * 1.5);
+      if (a <= 0) continue;
+      // 高像素版:方块 fillRect → 墨点/笔触精灵(tint 着色,软边轮廓)
       if (p.streak > 1.05) {
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.angle);
-        ctx.fillRect(-s * p.streak / 2, -s / 2, s * p.streak, s);
-        ctx.restore();
+        drawSprite(ctx, 'fx_streak', p.x, p.y, {
+          angle: p.angle, tint: p.color, alpha: a,
+          scale: p.size / 3, sx: p.streak / 4,
+        });
       } else {
-        ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+        drawSprite(ctx, 'fx_dot', p.x, p.y, { tint: p.color, alpha: a, scale: p.size / 6 });
       }
     }
     ctx.globalAlpha = 1;

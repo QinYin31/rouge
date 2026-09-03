@@ -1,7 +1,7 @@
 // 玩家:属性/成长/移动/受伤/经验
 import { Input } from '../core/input.js?v=17';
 import { Bus } from '../core/engine.js?v=17';
-import { drawSprite } from '../sprites.js?v=17';
+import { drawSprite, has } from '../sprites.js?v=17';
 
 export const CHARACTERS = {
   knight: {
@@ -21,6 +21,12 @@ export const CHARACTERS = {
     crit: 0.20, critDmg: 1.75,
     trait: '猎心：暴击率 20%，暴击伤害 175%',
     desc: '身法迅捷、拾取范围大 · 初始武功:贯日', cost: 800,
+  },
+  white: {
+    name: '白衣剑仙', weapon: 'knife', sprite: 'hero_white', hp: 95, might: 1.18, speed: 152, cdMult: 0.92,
+    crit: 0.12,
+    trait: '剑心通明：攻击 +18%，冷却 -8%，暴击率 12%',
+    desc: '一袭白衣,负剑下山,人剑合一 · 初始武功:剑气', cost: 2000,
   },
 };
 
@@ -62,7 +68,10 @@ export class Player {
     const oldMax = this.stats ? this.stats.maxHp : 0;
     // 等级成长：每级三维提升，缓解后期乏力
     const lv = Math.max(1, this.level || 1);
-    const lvMight = 1 + (lv - 1) * 0.06;
+    // 攻击成长软上限:25 级前每级 +6%(25 级时 ×2.44),之后增量指数衰减,总上限 ≈×2.84
+    // —— 旧曲线 60 级即 ×4.5 且无界,配合强力被动后期乘区过高;现保住前期爽感、封住挂机乱杀
+    const lvOver = Math.max(0, lv - 25);
+    const lvMight = 1 + (lv - 1) * 0.06 + 0.4 * (1 - Math.exp(-lvOver * 0.12));
     const lvHpFlat = (lv - 1) * 8;
     const lvSpeedMult = 1 + (lv - 1) * 0.012;
     const computedMaxHp = Math.round((c.hp + b.hpFlat + lvHpFlat) * b.hpMult);
@@ -209,8 +218,15 @@ export class Player {
       ctx.beginPath(); ctx.arc(this.x, this.y, 22 + f * 2, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
-    const walking = this.moving && Math.floor(this.animT / 0.16) % 2 === 1;
-    const name = this.char.sprite + (walking ? '_1' : '_0');
+    // 高像素版:4 帧走路循环 + 待机呼吸帧;新帧缺失时回退旧 _0/_1 二帧
+    let name;
+    if (this.moving) {
+      name = this.char.sprite + '_' + (Math.floor(this.animT / 0.13) % 4);
+      if (!has(name)) name = this.char.sprite + (Math.floor(this.animT / 0.16) % 2 === 1 ? '_1' : '_0');
+    } else {
+      name = this.char.sprite + '_idle';
+      if (!has(name)) name = this.char.sprite + '_0';
+    }
     if (this.iframes > 0 && Math.floor(this.iframes * 12) % 2 === 0) return; // 无敌帧闪烁
     if (this.hurtT > 0) drawSprite(ctx, name, this.x, this.y, { flip: this.facing < 0, tint: '#ff5555' });
     else drawSprite(ctx, name, this.x, this.y, { flip: this.facing < 0 });

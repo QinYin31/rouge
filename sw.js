@@ -1,5 +1,5 @@
 ﻿// Service Worker:预缓存全部文件,离线可玩;更新版本号 V 以刷新缓存
-const V = 'pxs-v25';
+const V = 'pxs-v26';
 const ASSETS = [
   './',
   'index.html',
@@ -7,6 +7,9 @@ const ASSETS = [
   'css/style.css',
   'js/main.js',
   'js/sprites.js',
+  'js/pix/palette.js', 'js/pix/brush.js', 'js/pix/ground.js', 'js/pix/hero-knight.js',
+  'js/pix/hero-mage.js', 'js/pix/hero-ranger.js', 'js/pix/hero-white.js', 'js/pix/enemies-a.js', 'js/pix/enemies-b.js',
+  'js/pix/bosses.js', 'js/pix/projectiles.js', 'js/pix/items.js', 'js/pix/fx.js',
   'js/core/engine.js', 'js/core/camera.js', 'js/core/input.js', 'js/core/save.js', 'js/core/audio.js',
   'js/game/player.js', 'js/game/map.js', 'js/game/particles.js', 'js/game/enemies.js',
   'js/game/weapons.js', 'js/game/spawner.js', 'js/game/boss.js', 'js/game/upgrades.js', 'js/game/pickups.js',
