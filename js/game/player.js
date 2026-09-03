@@ -1,4 +1,4 @@
-// 玩家:属性/成长/移动/受伤/经验
+﻿// 玩家:属性/成长/移动/受伤/经验
 import { Input } from '../core/input.js?v=17';
 import { Bus } from '../core/engine.js?v=17';
 import { drawSprite, has } from '../sprites.js?v=17';
@@ -221,25 +221,44 @@ export class Player {
     // 高像素版:4 帧走路循环 + 待机呼吸帧;新帧缺失时回退旧 _0/_1 二帧
     let name;
     if (this.moving) {
-      name = this.char.sprite + '_' + (Math.floor(this.animT / 0.13) % 4);
+      name = this.char.sprite + '_' + (Math.floor(this.animT / 0.11) % 4);
       if (!has(name)) name = this.char.sprite + (Math.floor(this.animT / 0.16) % 2 === 1 ? '_1' : '_0');
     } else {
       name = this.char.sprite + '_idle';
       if (!has(name)) name = this.char.sprite + '_0';
     }
-    // lively: walk bob + idle breathing
-    let bx=0, by=0, sx=1, sy=1;
+    // lively v2: exaggerated walk + breathing + shadow, no sticker
+    let bx=0, by=0, sx=1, sy=1, ang=0;
+    let shadowScale=1, shadowAlpha=0.22;
     if (this.moving) {
-      by = Math.sin(this.animT * 10) * 0.9;
-      bx = Math.sin(this.animT * 10 + Math.PI/2) * 0.35;
+      const phase = (this.animT * 10) % (Math.PI*2);
+      by = Math.sin(this.animT * 10) * 1.9;
+      bx = Math.sin(this.animT * 10 + Math.PI/2) * 0.75;
+      ang = Math.sin(this.animT * 10) * 0.045;
+      const k = Math.abs(Math.sin(this.animT * 10));
+      sy = 1 - k * 0.045;
+      sx = 1 + k * 0.032;
+      shadowScale = 1 - k * 0.18;
+      shadowAlpha = 0.18 + k * 0.12;
     } else {
       const t = this._g ? this._g.time : 0;
-      by = Math.sin(t * 2.2) * 0.9;
-      sy = 1 + Math.sin(t * 2.2) * 0.014;
-      sx = 1 - Math.sin(t * 2.2) * 0.007;
+      by = Math.sin(t * 2.2) * 1.55;
+      sy = 1 + Math.sin(t * 2.2) * 0.028;
+      sx = 1 - Math.sin(t * 2.2) * 0.015;
+      ang = Math.sin(t * 1.1) * 0.018;
+      shadowScale = 1 + Math.sin(t * 2.2) * 0.06;
+      shadowAlpha = 0.22 + Math.sin(t * 2.2) * 0.04;
     }
     if (this.iframes > 0 && Math.floor(this.iframes * 12) % 2 === 0) return;
-    const o = { flip: this.facing < 0, sx, sy };
+    // ground shadow: separate from sprite, stays on ground, scales with bob
+    ctx.save();
+    ctx.globalAlpha = shadowAlpha;
+    ctx.fillStyle = '#2b2b2b';
+    ctx.beginPath();
+    ctx.ellipse(this.x, this.y + 22, 18 * shadowScale, 6 * shadowScale, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    const o = { flip: this.facing < 0, sx, sy, angle: ang };
     if (this.hurtT > 0) o.tint = '#ff5555';
     drawSprite(ctx, name, this.x + bx, this.y + by, o);
   }
