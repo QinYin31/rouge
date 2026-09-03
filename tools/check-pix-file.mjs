@@ -8,8 +8,8 @@ import { PAL } from '../js/pix/palette.js';
 
 const NEW_SIZES = {
   fx_dot: [6, 6], fx_streak: [12, 3], fx_ink: [10, 10],
-  hero_white_0: [48, 48], hero_white_1: [48, 48], hero_white_2: [48, 48],
-  hero_white_3: [48, 48], hero_white_idle: [48, 48], hero_face_white: [48, 48],
+  hero_white_0: [96, 96], hero_white_1: [96, 96], hero_white_2: [96, 96],
+  hero_white_3: [96, 96], hero_white_idle: [96, 96], hero_face_white: [96, 96],
 };
 const FRAME_RE = /^(hero_(?:knight|mage|ranger|white))_(2|3|idle)$/;
 

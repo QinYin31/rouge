@@ -49,7 +49,7 @@ export class Engine {
     this.acc = 0; this.lastT = 0;
     // 默认 120Hz 物理步进,渲染仍跟随浏览器 requestAnimationFrame,无需额外高刷开关。
     this.step = 1 / 120; this.maxSteps = 10;
-    this.dprCap = 3; this.fps = 60; this.fpsShow = false; // 高像素版:3× 点阵需要更多物理像素承载细节
+    this.dprCap = 4; this.fps = 60; this.fpsShow = false; // 高像素版:3× 点阵需要更多物理像素承载细节
     this._bind = this._frame.bind(this);
     window.addEventListener('resize', () => this.resize());
     this.resize();

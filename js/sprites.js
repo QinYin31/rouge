@@ -134,7 +134,13 @@ export function drawSprite(ctx, name, cx, cy, o = {}) {
     c = raster(rows);
     bakeCache.set(name, c);
   }
-  const s = SCALE * (o.scale || 1);
+  // 1K/2K: hero_white 96/128/1024 auto scale to keep world 48
+  let baseScale = SCALE * (o.scale || 1);
+  if (name.startsWith('hero_white')) {
+    const expected = 48;
+    if (c.width !== expected) baseScale *= expected / c.width;
+  }
+  const s = baseScale;
   if (!(s > 0)) return;
   const w = c.width * s * (o.sx || 1), h = c.height * s * (o.sy || 1);
   const alpha = o.alpha;
