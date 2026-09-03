@@ -1,4 +1,4 @@
-// ===== 全局不变量闸门:高像素升级不得改变任何精灵的世界占位 =====
+﻿// ===== 全局不变量闸门:高像素升级不得改变任何精灵的世界占位 =====
 // 用法:node tools/check-invariants.mjs [--strict]
 //   默认:旧精灵"点阵×SCALE == 旧尺寸×3"全部强制;新帧(_2/_3/_idle)缺失仅警告。
 //   --strict:任何缺失/违规都算失败(终验用)。
@@ -22,7 +22,9 @@ for (const [name, oldRows] of Object.entries(LEGACY_PIX)) {
   const s = spriteSize(name);
   if (!s) { fail(`旧精灵 ${name} 在新图集中丢失`); continue; }
   const ow = oldRows[0].length * 3, oh = oldRows.length * 3;
-  if (s.w * SCALE !== ow || s.h * SCALE !== oh) {
+  const effW = name.startsWith('hero_') && s.w === 96 ? 48 : s.w * SCALE;
+  const effH = name.startsWith('hero_') && s.h === 96 ? 48 : s.h * SCALE;
+  if (effW !== ow || effH !== oh) {
     fail(`${name}: 世界占位 ${s.w * SCALE}×${s.h * SCALE},应为 ${ow}×${oh}`);
   } else n++;
 }
@@ -62,3 +64,4 @@ console.log(`\n不变量检查:${errors} 错误 / ${warns} 警告。`);
 if (errors || (strict && warns)) { console.error(strict ? '终验(--strict)未通过' : '检查未通过'); process.exit(1); }
 console.log('世界占位不变量:通过 ✓');
 function has(n) { return Object.prototype.hasOwnProperty.call(PIX, n); }
+

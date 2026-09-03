@@ -227,9 +227,21 @@ export class Player {
       name = this.char.sprite + '_idle';
       if (!has(name)) name = this.char.sprite + '_0';
     }
-    if (this.iframes > 0 && Math.floor(this.iframes * 12) % 2 === 0) return; // 无敌帧闪烁
-    if (this.hurtT > 0) drawSprite(ctx, name, this.x, this.y, { flip: this.facing < 0, tint: '#ff5555' });
-    else drawSprite(ctx, name, this.x, this.y, { flip: this.facing < 0 });
+    // lively: walk bob + idle breathing
+    let bx=0, by=0, sx=1, sy=1;
+    if (this.moving) {
+      by = Math.sin(this.animT * 10) * 0.9;
+      bx = Math.sin(this.animT * 10 + Math.PI/2) * 0.35;
+    } else {
+      const t = this._g ? this._g.time : 0;
+      by = Math.sin(t * 2.2) * 0.9;
+      sy = 1 + Math.sin(t * 2.2) * 0.014;
+      sx = 1 - Math.sin(t * 2.2) * 0.007;
+    }
+    if (this.iframes > 0 && Math.floor(this.iframes * 12) % 2 === 0) return;
+    const o = { flip: this.facing < 0, sx, sy };
+    if (this.hurtT > 0) o.tint = '#ff5555';
+    drawSprite(ctx, name, this.x + bx, this.y + by, o);
   }
 }
 
